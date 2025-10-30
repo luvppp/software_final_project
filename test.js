@@ -62,5 +62,3 @@ function extractSkills(description) {
 fetchAndStoreJobs()
 
 console.log("第一次修改")
-console.log("第二次修改")
-console.log("第三次修改")
