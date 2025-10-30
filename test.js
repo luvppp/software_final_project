@@ -60,3 +60,5 @@ function extractSkills(description) {
 
 // 执行
 fetchAndStoreJobs()
+
+console.log("第一次修改")
