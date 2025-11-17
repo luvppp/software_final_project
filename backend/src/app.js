@@ -1,0 +1,38 @@
+import express from 'express';
+import cors from 'cors';
+import userRoutes from './routes/userRoutes.js';
+import jobRoutes from './routes/jobRoutes.js';
+import learningRoutes from './routes/learningRoutes.js';
+import systemRoutes from './routes/systemRoutes.js';
+import { sendError } from './utils/response.js';
+
+const app = express();
+
+// 基础中间件：跨域 & JSON 解析
+app.use(cors());
+app.use(express.json());
+
+app.get('/', (req, res) =>
+  res.json({ code: 200, msg: 'AI Career Backend Ready' })
+);
+
+app.use('/api/user', userRoutes);
+app.use('/api/job', jobRoutes);
+app.use('/api/learning', learningRoutes);
+app.use('/api/system', systemRoutes);
+
+// 捕获未命中路由的请求
+app.use((req, res) => sendError(res, 404, '接口不存在'));
+
+// 兜底错误处理，防止异常堆栈泄漏给客户端
+app.use((err, req, res, next) => {
+  console.error('API Error:', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  const message = err.message || '服务器内部错误';
+  return sendError(res, err.code || 500, message);
+});
+
+export default app;
+
