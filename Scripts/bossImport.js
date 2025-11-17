@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer'
 import mongoose from 'mongoose'
 
 // 连接 MongoDB
-mongoose.connect('mongodb://localhost:27017/software')
+mongoose.connect('mongodb://10.161.106.62:27017/software')
   .then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err))
 
