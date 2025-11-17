@@ -24,12 +24,89 @@ const Job = mongoose.model('Job', jobSchema, 'jobCollection')
 
 // 目标关键词数组（支持多个职位关键词）
 const KEYWORDS = [
+  // 计算机/IT 领域
   '前端开发',
   'Java开发',
   'Python开发',
   '测试工程师',
   'AI工程师',
-  '算法工程师'
+  '算法工程师',
+  '后端开发',
+  '全栈开发',
+  '移动开发',
+  '运维工程师',
+  '数据分析师',
+  
+  // 金融/会计领域
+  '财务',
+  '会计',
+  '审计',
+  '金融分析师',
+  '投资顾问',
+  '银行',
+  
+  // 市场营销/运营领域
+  '市场营销',
+  '市场推广',
+  '运营',
+  '产品经理',
+  '新媒体运营',
+  '电商运营',
+  '内容运营',
+  
+  // 人力资源领域
+  '人力资源',
+  'HR',
+  '招聘',
+  '人事',
+  
+  // 销售/商务领域
+  '销售',
+  '商务',
+  '客户经理',
+  '业务员',
+  
+  // 设计领域
+  'UI设计',
+  '平面设计',
+  '产品设计',
+  '视觉设计',
+  '交互设计',
+  
+  // 教育领域
+  '教师',
+  '培训',
+  '教育',
+  '讲师',
+  
+  // 医疗领域
+  '医生',
+  '护士',
+  '药师',
+  '医疗',
+  
+  // 工程领域
+  '机械工程师',
+  '电气工程师',
+  '土木工程师',
+  '结构工程师',
+  
+  // 法律领域
+  '律师',
+  '法务',
+  '法律顾问',
+  
+  // 媒体/编辑领域
+  '编辑',
+  '记者',
+  '文案',
+  '新媒体',
+  
+  // 其他专业领域
+  '翻译',
+  '咨询',
+  '项目管理',
+  '行政'
 ]
 
 // 技能映射表：将各种变体映射到标准名称
@@ -113,7 +190,103 @@ const skillMapping = {
   'php': 'PHP',
   'react native': 'React Native',
   'reactnative': 'React Native',
-  'ReactNative': 'React Native'
+  'ReactNative': 'React Native',
+  
+  // 设计软件相关
+  'ps': 'Photoshop',
+  'PS': 'Photoshop',
+  'photoshop': 'Photoshop',
+  'PHOTOSHOP': 'Photoshop',
+  'illustrator': 'Illustrator',
+  'ILLUSTRATOR': 'Illustrator',
+  'ai软件': 'Illustrator',
+  'adobe illustrator': 'Illustrator',
+  'premiere': 'Premiere',
+  'PREMIERE': 'Premiere',
+  'pr软件': 'Premiere',
+  'adobe premiere': 'Premiere',
+  'after effects': 'After Effects',
+  'AFTER EFFECTS': 'After Effects',
+  'ae软件': 'After Effects',
+  'adobe after effects': 'After Effects',
+  'cad': 'AutoCAD',
+  'CAD': 'AutoCAD',
+  'autocad': 'AutoCAD',
+  'AUTOCAD': 'AutoCAD',
+  'solidworks': 'SolidWorks',
+  'SOLIDWORKS': 'SolidWorks',
+  'sw': 'SolidWorks',
+  'sketch': 'Sketch',
+  'SKETCH': 'Sketch',
+  'figma': 'Figma',
+  'FIGMA': 'Figma',
+  'axure': 'Axure',
+  'AXURE': 'Axure',
+  'axure rp': 'Axure',
+  'xd': 'XD',
+  'adobe xd': 'XD',
+  'revit': 'Revit',
+  'REVIT': 'Revit',
+  'bim': 'BIM',
+  'BIM': 'BIM',
+  'c4d': 'C4D',
+  'cinema 4d': 'C4D',
+  'cinema4d': 'C4D',
+  
+  // Office软件相关
+  'office': 'Office',
+  'OFFICE': 'Office',
+  'microsoft office': 'Office',
+  'word': 'Word',
+  'WORD': 'Word',
+  'microsoft word': 'Word',
+  'excel': 'Excel',
+  'EXCEL': 'Excel',
+  'microsoft excel': 'Excel',
+  'powerpoint': 'PowerPoint',
+  'POWERPOINT': 'PowerPoint',
+  'ppt': 'PowerPoint',
+  'PPT': 'PowerPoint',
+  'microsoft powerpoint': 'PowerPoint',
+  
+  // 财务软件相关
+  'sap': 'SAP',
+  'SAP': 'SAP',
+  '用友': '用友',
+  '金蝶': '金蝶',
+  '财务软件': '财务软件',
+  
+  // 证书相关
+  'cpa': 'CPA',
+  'CPA': 'CPA',
+  'cfa': 'CFA',
+  'CFA': 'CFA',
+  'acca': 'ACCA',
+  'ACCA': 'ACCA',
+  'cma': 'CMA',
+  'CMA': 'CMA',
+  'catti': 'CATTI',
+  'CATTI': 'CATTI',
+  'cet-4': 'CET-4',
+  'CET-4': 'CET-4',
+  'cet4': 'CET-4',
+  '英语四级': 'CET-4',
+  'cet-6': 'CET-6',
+  'CET-6': 'CET-6',
+  'cet6': 'CET-6',
+  '英语六级': 'CET-6',
+  
+  // 其他常见变体
+  'seo': 'SEO',
+  'SEO': 'SEO',
+  'sem': 'SEM',
+  'SEM': 'SEM',
+  'crm': 'CRM',
+  'CRM': 'CRM',
+  '客户关系管理': 'CRM',
+  'mooc': 'MOOC',
+  'MOOC': 'MOOC',
+  '在线教育': 'MOOC'
 }
 
 // 标准技能名称列表（使用规范化的名称）
@@ -148,7 +321,7 @@ const standardSkills = [
   'AI', '机器学习', '深度学习', 'TensorFlow',
   'PyTorch', '神经网络', 'NLP', '计算机视觉',
   
-  // 其他
+  // 其他IT技能
   'RESTful', 'GraphQL', 'gRPC', '微服务',
   '分布式', '高并发', '性能优化',
   '自动化测试', 'TDD', 'BDD', '单元测试',
@@ -156,7 +329,77 @@ const standardSkills = [
   // 更多前端框架和工具
   'Ant Design', 'Element UI', 'Vuex', 'Redux',
   'Flutter',
-  'WebSocket', 'HTTP/HTTPS'
+  'WebSocket', 'HTTP/HTTPS',
+  
+  // 金融/会计技能
+  '财务分析', '财务报表', '成本核算', '预算管理',
+  '会计', '审计', '税务', '财务管理',
+  'Excel', '财务软件', 'SAP', '用友', '金蝶',
+  'CPA', 'CFA', 'ACCA', 'CMA',
+  '银行', '证券', '保险', '投资',
+  
+  // 市场营销/运营技能
+  '市场营销', '市场分析', '市场调研', '品牌管理',
+  'SEO', 'SEM', '信息流', '社交媒体',
+  '微信', '微博', '抖音', '小红书', 'B站',
+  '数据分析', '用户运营', '活动策划', '内容创作',
+  '电商', '淘宝', '京东', '拼多多', '直播',
+  'PR', '媒体', '广告', '推广',
+  
+  // 人力资源技能
+  '招聘', '面试', '培训', '绩效管理',
+  '薪酬', '福利', '劳动关系', '员工关系',
+  'HR', '人力资源', '人事', '组织发展',
+  
+  // 销售/商务技能
+  '销售', '商务谈判', '客户管理', '渠道管理',
+  'CRM', '客户关系', '商务拓展', '业务开发',
+  '沟通', '谈判', '演讲', '演示',
+  
+  // 设计技能
+  'Photoshop', 'PS', 'Illustrator', 'AI',
+  'Figma', 'Sketch', 'XD', 'Axure',
+  'UI设计', 'UX设计', '交互设计', '视觉设计',
+  '平面设计', '品牌设计', '包装设计', '网页设计',
+  '手绘', '插画', '3D', 'C4D',
+  
+  // 教育技能
+  '教学', '课程设计', '培训', '教育',
+  'PPT', '课件制作', '在线教育', 'MOOC',
+  '教师资格证', '普通话', '英语', '学科知识',
+  
+  // 医疗技能
+  '医学', '临床', '诊断', '治疗',
+  '护理', '药学', '医疗器械', '医疗管理',
+  '执业医师', '护士资格', '药师资格',
+  
+  // 工程技能
+  'AutoCAD', 'CAD', 'SolidWorks', 'Pro/E',
+  '机械设计', '电气设计', '结构设计', '工程管理',
+  'BIM', 'Revit', '项目管理', '施工管理',
+  
+  // 法律技能
+  '法律', '法务', '合同', '诉讼',
+  '律师', '法律顾问', '合规', '风险控制',
+  '司法考试', '法律职业资格',
+  
+  // 媒体/编辑技能
+  '编辑', '写作', '文案', '内容创作',
+  '新闻', '采访', '摄影', '视频剪辑',
+  'Premiere', 'PR', 'After Effects', 'AE',
+  'Final Cut Pro', '达芬奇', '剪映',
+  
+  // 翻译技能
+  '英语', '翻译', '口译', '笔译',
+  '日语', '韩语', '法语', '德语',
+  'CATTI', '翻译资格',
+  
+  // 通用技能
+  'Office', 'Word', 'Excel', 'PowerPoint',
+  '沟通能力', '团队合作', '项目管理', '时间管理',
+  '领导力', '执行力', '学习能力', '创新能力',
+  '英语', '英语四级', '英语六级', 'CET-4', 'CET-6',
+  '驾驶', '驾照', 'C1', 'C2'
 ]
 
 // 技能关键词提取函数 - 支持中英文，自动规范化技能名称
