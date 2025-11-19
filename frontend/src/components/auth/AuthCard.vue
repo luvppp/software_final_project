@@ -96,7 +96,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { type FormInstance, type FormRules } from 'element-plus'
 import { Message, Lock, User } from '@element-plus/icons-vue'
 
 // Props
@@ -171,7 +171,7 @@ const rules = computed<FormRules>(() => {
     baseRules.confirmPassword = [
       { required: true, message: '请确认密码', trigger: 'blur' },
       {
-        validator: (rule, value, callback) => {
+        validator: (_, value, callback) => {
           if (value !== formData.password) {
             callback(new Error('两次输入的密码不一致'))
           } else {
