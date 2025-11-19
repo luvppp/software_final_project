@@ -35,7 +35,7 @@ const handleRegister = async (data: RegisterParams & { confirmPassword?: string 
 
   try {
     // 调用注册接口
-    const response = await register({
+    await register({
       username: data.username,
       email: data.email,
       password: data.password,
@@ -52,10 +52,7 @@ const handleRegister = async (data: RegisterParams & { confirmPassword?: string 
 
       ElMessage.success('登录成功')
 
-      // 跳转到首页
-      router.push('/dashboard').catch(() => {
-        router.push('/')
-      })
+      router.push('/login')
     } catch (loginError) {
       // 如果自动登录失败，跳转到登录页面
       router.push('/login')

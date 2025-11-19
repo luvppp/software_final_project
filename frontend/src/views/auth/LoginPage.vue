@@ -40,10 +40,7 @@ const handleLogin = async (data: LoginParams & { remember?: boolean }) => {
 
     ElMessage.success('登录成功')
 
-    // 跳转到首页（如果存在 dashboard 路由，否则跳转到根路径）
-    router.push('/dashboard').catch(() => {
-      router.push('/')
-    })
+    router.push('/login')
   } catch (error: any) {
     // 错误信息已在 API 拦截器中显示，这里不需要再次显示
     console.error('登录失败:', error)
