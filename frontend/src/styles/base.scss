@@ -1,0 +1,36 @@
+@use './tokens' as *;
+@use 'sass:color';
+
+// 全局样式重置
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: $font-family;
+  font-size: 14px;
+  color: $color-body;
+  background-color: $color-background;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// 链接样式
+a {
+  color: $color-primary;
+  text-decoration: none;
+  transition: color 0.3s;
+
+  &:hover {
+    color: color.adjust($color-primary, $lightness: 10%);
+  }
+}
+
+// 容器
+.container {
+  max-width: $container-width;
+  margin: 0 auto;
+  padding: 0 $spacing-lg;
+}
