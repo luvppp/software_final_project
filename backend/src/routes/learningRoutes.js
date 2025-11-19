@@ -4,6 +4,7 @@ import LearningPlan from '../models/learningPlanModel.js';
 import User from '../models/userModel.js';
 import { sendError, sendSuccess } from '../utils/response.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = Router();
 
@@ -28,6 +29,7 @@ const ensureUser = async (userId) => {
 // 生成/覆盖学习计划
 router.post(
   '/plan',
+  authMiddleware,
   asyncHandler(async (req, res) => {
     const { userId, missingSkills } = req.body || {};
 
@@ -35,6 +37,9 @@ router.post(
       return sendError(res, 400, 'userId 不能为空');
     }
 
+    if (!req.user || req.user.userId !== userId) {
+      return sendError(res, 403, '无权限');
+    }
     const user = await ensureUser(userId);
     if (!user) {
       return sendError(res, 404, '用户不存在');
@@ -60,6 +65,7 @@ router.post(
 // 更新学习进度
 router.put(
   '/progress',
+  authMiddleware,
   asyncHandler(async (req, res) => {
     const { userId, skill, progress } = req.body || {};
 
@@ -69,6 +75,10 @@ router.put(
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return sendError(res, 400, 'userId 不合法');
+    }
+
+    if (!req.user || req.user.userId !== userId) {
+      return sendError(res, 403, '无权限');
     }
 
     const record = await LearningPlan.findOne({ userId });
@@ -91,6 +101,7 @@ router.put(
 // 查询学习计划
 router.get(
   '/:userId',
+  authMiddleware,
   asyncHandler(async (req, res) => {
     const { userId } = req.params;
 
@@ -98,6 +109,9 @@ router.get(
       return sendError(res, 400, 'userId 不合法');
     }
 
+    if (!req.user || req.user.userId !== userId) {
+      return sendError(res, 403, '无权限');
+    }
     const plan = await LearningPlan.findOne({ userId });
     if (!plan) {
       return sendSuccess(res, {

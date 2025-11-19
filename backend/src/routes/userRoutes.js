@@ -2,6 +2,11 @@ import { Router } from 'express';
 import User from '../models/userModel.js';
 import { sendError, sendSuccess } from '../utils/response.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import authMiddleware from '../middleware/authMiddleware.js';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'ai-career-secret';
 
 const router = Router();
 
@@ -21,10 +26,11 @@ router.post(
       return sendError(res, 400, '邮箱已注册');
     }
 
+    const hashed = await bcrypt.hash(password, 10);
     const user = await User.create({
       username: username.trim(),
       email: normalizedEmail,
-      password,
+      password: hashed,
     });
 
     return sendSuccess(res, { userId: user.id }, '注册成功');
@@ -41,14 +47,18 @@ router.post(
     }
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user || user.password !== password) {
+    if (!user) {
+      return sendError(res, 401, '邮箱或密码错误');
+    }
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) {
       return sendError(res, 401, '邮箱或密码错误');
     }
 
     return sendSuccess(
       res,
       {
-        token: `mock-token-${user.id}`,
+        token: jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' }),
         userId: user.id,
       },
       '登录成功'
@@ -59,10 +69,14 @@ router.post(
 // 更新用户技能/目标岗位
 router.put(
   '/skills',
+  authMiddleware,
   asyncHandler(async (req, res) => {
     const { userId, skills = [], targetJob } = req.body || {};
     if (!userId || !Array.isArray(skills)) {
       return sendError(res, 400, 'userId 或 skills 不合法');
+    }
+    if (!req.user || req.user.userId !== userId) {
+      return sendError(res, 403, '无权限');
     }
 
     const user = await User.findById(userId);
@@ -83,8 +97,12 @@ router.put(
 // 获取用户详情（隐藏密码字段）
 router.get(
   '/:userId',
+  authMiddleware,
   asyncHandler(async (req, res) => {
     const { userId } = req.params;
+    if (!req.user || req.user.userId !== userId) {
+      return sendError(res, 403, '无权限');
+    }
     const user = await User.findById(userId).select('-password');
 
     if (!user) {

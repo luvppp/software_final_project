@@ -4,12 +4,14 @@ import Job from '../models/jobModel.js';
 import User from '../models/userModel.js';
 import { sendError, sendSuccess } from '../utils/response.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = Router();
 
 // 岗位列表：支持分页 + 关键字模糊搜索
 router.get(
   '/list',
+  authMiddleware,
   asyncHandler(async (req, res) => {
     const page = Number(req.query.page) > 0 ? Number(req.query.page) : 1;
     const limit = Number(req.query.limit) > 0 ? Number(req.query.limit) : 10;
@@ -57,6 +59,7 @@ router.get(
 // 岗位详情：校验 ObjectId 并返回完整信息
 router.get(
   '/:id',
+  authMiddleware,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -85,9 +88,14 @@ router.get(
 // AI 岗位匹配：根据用户技能计算匹配度并排序
 router.post(
   '/match',
+  authMiddleware,
   asyncHandler(async (req, res) => {
     const { userId, skills } = req.body || {};
     let skillSet = Array.isArray(skills) ? skills : [];
+
+    if (userId && (!req.user || req.user.userId !== userId)) {
+      return sendError(res, 403, '无权限');
+    }
 
     if (!skillSet.length && userId) {
       const user = await User.findById(userId);
