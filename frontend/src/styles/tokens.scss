@@ -1,0 +1,35 @@
+// 色彩系统
+$color-primary: #3A7AFE;
+$color-secondary: #5E6FEF;
+$color-background: #F7F9FC;
+$color-card: #FFFFFF;
+$color-title: #1F2D3D;
+$color-body: #303133;
+$color-subtle: #909399;
+$color-border: #E4E7ED;
+$color-success: #67C23A;
+$color-warning: #E6A23C;
+$color-danger: #F56C6C;
+$color-info: #909399;
+
+// 字体
+$font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+// 圆角
+$border-radius: 8px;
+$border-radius-button: 6px;
+$border-radius-input: 6px;
+$border-radius-card: 12px;
+
+// 阴影
+$box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+
+// 间距
+$spacing-xs: 8px;
+$spacing-sm: 12px;
+$spacing-md: 16px;
+$spacing-lg: 20px;
+$spacing-xl: 24px;
+
+// 布局
+$container-width: 1200px;
