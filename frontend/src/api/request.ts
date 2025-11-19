@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import type { AxiosInstance, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
 
 // 后端 API 基础地址
@@ -32,21 +32,24 @@ request.interceptors.request.use(
 // 响应拦截器
 request.interceptors.response.use(
   (response: AxiosResponse) => {
-    const { code, msg, data } = response.data
+    const payload = response.data
 
-    // 如果后端返回的 code 不是 200，视为错误
-    if (code !== 200) {
-      ElMessage.error(msg || '请求失败')
-      return Promise.reject(new Error(msg || '请求失败'))
+    if (payload && typeof payload === 'object' && 'code' in payload) {
+      if (payload.code !== 200) {
+        const message = payload.msg || '请求失败'
+        ElMessage.error(message)
+        return Promise.reject(new Error(message))
+      }
+      return payload.data ?? payload
     }
 
-    return data
+    return payload
   },
   (error) => {
     // 处理 HTTP 错误
     if (error.response) {
-      const { status, data } = error.response
-      const message = data?.msg || `请求失败: ${status}`
+      const status = error.response.status
+      const message = error.response.data?.msg || `请求失败: ${status}`
       ElMessage.error(message)
     } else if (error.request) {
       ElMessage.error('网络错误，请检查网络连接')
