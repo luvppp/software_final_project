@@ -52,7 +52,7 @@ const handleRegister = async (data: RegisterParams & { confirmPassword?: string 
 
       ElMessage.success('登录成功')
 
-      router.push('/login')
+      router.push('/')
     } catch (loginError) {
       // 如果自动登录失败，跳转到登录页面
       router.push('/login')

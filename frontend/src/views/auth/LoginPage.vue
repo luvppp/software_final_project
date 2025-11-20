@@ -40,7 +40,7 @@ const handleLogin = async (data: LoginParams & { remember?: boolean }) => {
 
     ElMessage.success('登录成功')
 
-    router.push('/login')
+    router.push('/')
   } catch (error: any) {
     // 错误信息已在 API 拦截器中显示，这里不需要再次显示
     console.error('登录失败:', error)
