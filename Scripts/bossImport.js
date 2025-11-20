@@ -16,7 +16,11 @@ const jobSchema = new mongoose.Schema({
   education: String,
   description: String,
   skills: [String],
-  keyword: String, // 搜索关键词
+  duties: [String],
+  requirements: [String],
+  companyIntro: String,
+  keyword: String,
+  city: String,
   createdAt: { type: Date, default: Date.now }
 })
 
@@ -441,21 +445,132 @@ function extractSkills(desc) {
   return Array.from(foundSkills)
 }
 
+// 从职位描述中拆分“岗位职责”“任职要求”“公司简介”，并做分点
+function splitDescSections(fullText, dutiesText = '', requirementsText = '') {
+  const clean = (fullText || '').replace(/\r/g, '').trim()
+  const normalizeLines = (text) => {
+    const rawLines = text
+      .split(/\n|；|;|。|\u2022|·|•|\-|—/)
+      .map(s => s.replace(/^\s*[\d一二三四五六七八九十\.、\-•\*\)]\s*/, '').trim())
+      .filter(Boolean)
+    return Array.from(new Set(rawLines.map(s => s.replace(/\s+/g, ' ')).filter(s => /[\u4e00-\u9fa5A-Za-z]/.test(s) && s.length >= 4)))
+  }
+
+  const cityNames = ['北京','上海','广州','深圳','杭州','成都','重庆','武汉','西安','长沙','郑州','南京','厦门','苏州','合肥']
+  const excludeTokens = ['举报','扫码','二维码','查看全部','工商信息','工作地址','更多职位','点击查看地图','公司介绍','公司简介','职位描述']
+  const salaryRegex = /(\d+\s*(K|k|千|万)|[0-9]+元\/?天|薪)/
+
+  const filterLines = (lines, type) => {
+    const includeDuty = ['负责','参与','承担','推进','设计','开发','优化','维护','搭建','实现','编写','调试','测试','管理','沟通','协作','支持','跟进','分析']
+    const includeReq = ['熟悉','掌握','精通','具备','有','善于','能够','了解','至少','优秀','本科','学历','经验','能力','英语','团队','沟通','优先','加分']
+    const include = type === 'duty' ? includeDuty : includeReq
+
+    const res = []
+    for (let s of lines) {
+      const trimmed = s.trim()
+      if (!trimmed) continue
+      if (trimmed.length < 4) continue
+      if (salaryRegex.test(trimmed)) continue
+      if (cityNames.some(c => trimmed === c || trimmed.startsWith(c))) continue
+      if (excludeTokens.some(k => trimmed.includes(k))) continue
+      if (!include.some(k => trimmed.includes(k))) continue
+      res.push(trimmed)
+      if (res.length >= 7) break
+    }
+    return res
+  }
+
+  const sections = {
+    duties: [],
+    requirements: [],
+    companyIntro: ''
+  }
+
+  // 基于常见中文标题切分
+  const dutiesMatch = clean.match(/(岗位职责|职位职责|工作职责|工作内容|岗位内容)[\s\S]*?(?=(任职要求|职位要求|资格要求|公司(简介|介绍)|$))/)
+  const reqsMatch = clean.match(/(任职要求|职位要求|资格要求)[\s\S]*?(?=(公司(简介|介绍)|$))/)
+  const companyMatch = clean.match(/公司(简介|介绍)[\s\S]*/)
+
+  if (dutiesText) sections.duties = filterLines(normalizeLines(dutiesText), 'duty')
+  if (requirementsText) sections.requirements = filterLines(normalizeLines(requirementsText), 'req')
+  if (!dutiesText && dutiesMatch) sections.duties = filterLines(normalizeLines(dutiesMatch[0].replace(/^(岗位职责|职位职责|工作职责|工作内容|岗位内容)/, '')), 'duty')
+  if (!requirementsText && reqsMatch) sections.requirements = filterLines(normalizeLines(reqsMatch[0].replace(/^(任职要求|职位要求|资格要求)/, '')), 'req')
+  if (companyMatch) sections.companyIntro = companyMatch[0].replace(/^公司(简介|介绍)/, '').trim()
+
+  // 兜底：如果无法识别标题，按整体粗分
+  if (sections.duties.length === 0 || sections.requirements.length === 0) {
+    const lines = normalizeLines(clean)
+    if (sections.duties.length === 0) sections.duties = filterLines(lines, 'duty')
+    if (sections.requirements.length === 0) sections.requirements = filterLines(lines, 'req')
+  }
+
+  return sections
+}
+
+// 清洗公司简介文本，移除噪声与不相关模块
+function cleanCompanyIntro(text) {
+  let t = (text || '').replace(/[\uE000-\uF8FF]/g, '').replace(/\r/g, '')
+  // 截断在这些模块之前
+  const cutPoints = ['查看全部', '工商信息', '工作地址', '更多职位', '看过该职位的人还看了', '点击查看地图']
+  for (const marker of cutPoints) {
+    const idx = t.indexOf(marker)
+    if (idx > 0) {
+      t = t.slice(0, idx)
+      break
+    }
+  }
+  // 删除工商信息键值行
+  const removeKeys = ['公司名称', '法定代表人', '成立日期', '企业类型', '经营状态', '注册资金']
+  t = t
+    .split(/\n|\s{2,}/)
+    .map(s => s.trim())
+    .filter(s => s && !removeKeys.some(k => s.includes(k)))
+    .join('\n')
+
+  // 合并多余空白与标点
+  t = t.replace(/[\t ]+/g, ' ').replace(/\n{3,}/g, '\n').replace(/\*+/g, '')
+  // 去尾多余标注
+  t = t.replace(/\s*(更多职位.*)$/s, '').trim()
+  // 控制最大长度
+  if (t.length > 1200) t = t.slice(0, 1200)
+  return t
+}
+
+// 城市列表（Boss 直聘城市代码）- 分布尽量广
+const CITIES = [
+  { name: '北京', code: '101010100' },
+  { name: '上海', code: '101020100' },
+  { name: '广州', code: '101280100' },
+  { name: '深圳', code: '101280600' },
+  { name: '杭州', code: '101210100' },
+  { name: '成都', code: '101270100' },
+  { name: '重庆', code: '101040100' },
+  { name: '武汉', code: '101200100' },
+  { name: '西安', code: '101110100' },
+  { name: '长沙', code: '101250100' },
+  { name: '郑州', code: '101180100' },
+  { name: '南京', code: '101190100' },
+  { name: '厦门', code: '101230200' },
+  { name: '苏州', code: '101190400' },
+  { name: '合肥', code: '101220100' }
+]
+const TARGET_COUNT = 30
+
 // 爬取单个关键词的函数
-async function fetchBossJobsByKeyword(keyword, browser) {
+async function fetchBossJobsByKeywordInCity(keyword, city, browser, limit = 15) {
   try {
-    const BASE_URL = `https://www.zhipin.com/web/geek/job?query=${encodeURIComponent(keyword)}&city=101010100`
+    const BASE_URL = `https://www.zhipin.com/web/geek/job?query=${encodeURIComponent(keyword)}&city=${city.code}`
     
     const page = await browser.newPage()
     
     // 设置浏览器视口
     await page.setViewport({ width: 1920, height: 1080 })
     
-    console.log(`\n📡 [${keyword}] 正在访问: ${BASE_URL}`)
+    console.log(`\n📡 [${keyword}/${city.name}] 正在访问: ${BASE_URL}`)
     await page.goto(BASE_URL, { waitUntil: 'networkidle2', timeout: 60000 })
     
     // 等待岗位列表加载
-    console.log(`⏳ [${keyword}] 等待岗位列表加载...`)
+    console.log(`⏳ [${keyword}/${city.name}] 等待岗位列表加载...`)
     await page.waitForSelector('.job-list-box', { timeout: 10000 }).catch(() => {
       console.log(`⚠️ [${keyword}] 未找到 .job-list-box，尝试等待其他元素...`)
     })
@@ -464,7 +579,7 @@ async function fetchBossJobsByKeyword(keyword, browser) {
     await new Promise(resolve => setTimeout(resolve, 3000))
     
     // 先获取所有岗位链接
-    console.log(`🔍 [${keyword}] 获取岗位链接...`)
+    console.log(`🔍 [${keyword}/${city.name}] 获取岗位链接...`)
     const jobLinks = await page.evaluate(() => {
       const links = []
       
@@ -510,7 +625,7 @@ async function fetchBossJobsByKeyword(keyword, browser) {
       return uniqueLinks
     })
     
-    console.log(`📊 [${keyword}] 找到 ${jobLinks.length} 个岗位链接`)
+    console.log(`📊 [${keyword}/${city.name}] 找到 ${jobLinks.length} 个岗位链接`)
     
     // 关闭列表页
     await page.close()
@@ -518,12 +633,12 @@ async function fetchBossJobsByKeyword(keyword, browser) {
     const jobs = []
     
     // 遍历每个岗位链接，获取详细信息（每个关键词最多爬取10个岗位）
-    const maxJobs = Math.min(jobLinks.length, 10)
-    console.log(`🚀 [${keyword}] 开始爬取 ${maxJobs} 个岗位详情...`)
+    const maxJobs = Math.min(jobLinks.length, limit)
+    console.log(`🚀 [${keyword}/${city.name}] 开始爬取 ${maxJobs} 个岗位详情...`)
     
     for (let i = 0; i < maxJobs; i++) {
       const jobLink = jobLinks[i]
-      console.log(`[${keyword}] [${i + 1}/${maxJobs}] 正在爬取: ${jobLink.title}`)
+      console.log(`[${keyword}/${city.name}] [${i + 1}/${maxJobs}] 正在爬取: ${jobLink.title}`)
       
       try {
         // 打开新标签页
@@ -531,6 +646,7 @@ async function fetchBossJobsByKeyword(keyword, browser) {
         await newPage.setViewport({ width: 1920, height: 1080 })
         
         // 访问岗位详情页
+        await newPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36')
         await newPage.goto(jobLink.url, { waitUntil: 'networkidle2', timeout: 30000 })
         
         // 等待内容加载
@@ -564,7 +680,7 @@ async function fetchBossJobsByKeyword(keyword, browser) {
           const education = eduEl?.textContent?.trim() || ''
           
           // 岗位描述和要求（这是最重要的）
-          const descEl = document.querySelector('.job-segment-text, .job-detail')
+          const descEl = document.querySelector('.job-segment-text, .job-detail, .job-sec .text')
           let description = ''
           
           if (descEl) {
@@ -575,7 +691,33 @@ async function fetchBossJobsByKeyword(keyword, browser) {
             const altDescEl = document.querySelector('.job-primary .job-detail, .detail')
             description = altDescEl?.textContent?.trim() || ''
           }
-          
+
+          // 页面上的技能标签
+          const tagNodes = Array.from(document.querySelectorAll('.tag, .job-tags .tag, .tag-list .tag'))
+          const tagTexts = tagNodes.map(n => n.textContent?.trim()).filter(Boolean)
+
+          // 公司简介可能在公司模块的文本区域
+          const companyInfoEl = document.querySelector('.company-detail .text, .job-company .text, .job-sec .company-info .text, .side-company .text')
+          const companyText = companyInfoEl?.textContent?.trim() || ''
+
+          // 精确提取“职位描述/岗位职责/任职要求”分块
+          const secs = Array.from(document.querySelectorAll('.job-sec'))
+          let dutiesRaw = ''
+          let requirementsRaw = ''
+          let descFull = description
+          secs.forEach(sec => {
+            const titleTxt = (sec.querySelector('h3, .title')?.textContent || '').trim()
+            const bodyTxt = (sec.querySelector('.text')?.innerText || sec.innerText || '').trim()
+            if (/职位描述|岗位职责|工作职责|工作内容|岗位内容/i.test(titleTxt)) {
+              descFull = bodyTxt
+              const dutyMatch = bodyTxt.match(/(岗位职责|职位职责|工作职责|工作内容|岗位内容)[\s\S]*?(?=(任职要求|职位要求|资格要求|公司|$))/)
+              if (dutyMatch) dutiesRaw = dutyMatch[0].replace(/^(岗位职责|职位职责|工作职责|工作内容|岗位内容)/, '')
+            }
+            if (/任职要求|职位要求|资格要求/i.test(titleTxt)) {
+              requirementsRaw = bodyTxt.replace(/^(任职要求|职位要求|资格要求)/, '')
+            }
+          })
+
           return {
             title,
             company,
@@ -583,25 +725,39 @@ async function fetchBossJobsByKeyword(keyword, browser) {
             location,
             experience,
             education,
-            description
+            description,
+            descFull,
+            dutiesRaw,
+            requirementsRaw,
+            pageTags: tagTexts,
+            companyRaw: companyText
           }
         })
         
         await newPage.close()
         
         // 从描述中提取技能
-        jobInfo.skills = extractSkills(jobInfo.description || jobInfo.title)
+        const sections = splitDescSections(jobInfo.descFull || jobInfo.description, jobInfo.dutiesRaw || '', jobInfo.requirementsRaw || '')
+        jobInfo.duties = sections.duties
+        jobInfo.requirements = sections.requirements
+        jobInfo.companyIntro = cleanCompanyIntro(jobInfo.companyRaw || sections.companyIntro || '')
+        jobInfo.skills = Array.from(new Set([
+          ...extractSkills(jobInfo.description || jobInfo.title),
+          ...extractSkills((jobInfo.pageTags || []).join(' '))
+        ]))
         
         // 添加关键词字段，方便后续分析
         jobInfo.keyword = keyword
+        jobInfo.city = city.name
         jobs.push(jobInfo)
-        console.log(`  ✅ [${keyword}] 成功爬取，提取到技能: ${jobInfo.skills.slice(0, 3).join(', ')}...`)
+        console.log(`  ✅ [${keyword}/${city.name}] 成功爬取，提取到技能: ${jobInfo.skills.slice(0, 3).join(', ')}...`)
+        console.log(`  🏢 公司简介: ${jobInfo.companyIntro.slice(0, 80)}...`)
         
         // 避免请求过快，添加延迟
         await new Promise(resolve => setTimeout(resolve, 1000))
         
       } catch (err) {
-        console.log(`  ⚠️ [${keyword}] 爬取失败: ${err.message}`)
+        console.log(`  ⚠️ [${keyword}/${city.name}] 爬取失败: ${err.message}`)
         // 如果详情页无法访问，至少保存基本信息
         jobs.push({
           title: jobLink.title,
@@ -617,7 +773,7 @@ async function fetchBossJobsByKeyword(keyword, browser) {
       }
     }
     
-    console.log(`\n📝 [${keyword}] 总共成功爬取 ${jobs.length} 个岗位`)
+    console.log(`\n📝 [${keyword}/${city.name}] 总共成功爬取 ${jobs.length} 个岗位`)
     
     if (jobs.length > 0) {
       // 显示提取到的技能统计
@@ -627,7 +783,7 @@ async function fetchBossJobsByKeyword(keyword, browser) {
         skillCount[skill] = (skillCount[skill] || 0) + 1
       })
       
-      console.log(`\n📊 [${keyword}] 技能统计（前10）:`)
+      console.log(`\n📊 [${keyword}/${city.name}] 技能统计（前10）:`)
       const topSkills = Object.entries(skillCount)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 10)
@@ -636,13 +792,13 @@ async function fetchBossJobsByKeyword(keyword, browser) {
       })
       
       await Job.insertMany(jobs)
-      console.log(`\n✅ [${keyword}] 已写入 ${jobs.length} 条岗位数据到 jobCollection`)
+      console.log(`\n✅ [${keyword}/${city.name}] 已写入 ${jobs.length} 条岗位数据到 jobCollection`)
     }
     
     return jobs
     
   } catch (err) {
-    console.error(`❌ [${keyword}] 爬取出错:`, err.message)
+    console.error(`❌ [${keyword}/${city.name}] 爬取出错:`, err.message)
     return []
   }
 }
@@ -669,8 +825,19 @@ async function fetchBossJobs() {
       console.log(`📌 [${i + 1}/${KEYWORDS.length}] 正在处理关键词: ${keyword}`)
       console.log(`${'='.repeat(60)}`)
       
-      const jobs = await fetchBossJobsByKeyword(keyword, browser)
-      allJobs.push(...jobs)
+      let collected = 0
+      for (let c = 0; c < CITIES.length && collected < TARGET_COUNT; c++) {
+        const city = CITIES[c]
+        const remain = TARGET_COUNT - collected
+        const perCityLimit = Math.min(8, Math.max(5, remain))
+        const jobs = await fetchBossJobsByKeywordInCity(keyword, city, browser, perCityLimit)
+        allJobs.push(...jobs)
+        collected += jobs.length
+        if (c < CITIES.length - 1 && collected < TARGET_COUNT) {
+          console.log(`\n⏸️  切换城市，等待 2 秒...`)
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
+      }
       
       // 每个关键词之间添加延迟，避免请求过快
       if (i < KEYWORDS.length - 1) {
