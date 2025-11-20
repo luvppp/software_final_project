@@ -37,7 +37,7 @@ router.post(
   })
 );
 
-// 用户登录：简单校验邮箱+明文密码
+// 用户登录：简单校验邮箱+hashed密码
 router.post(
   '/login',
   asyncHandler(async (req, res) => {
@@ -91,6 +91,52 @@ router.put(
     await user.save();
 
     return sendSuccess(res, null, '技能更新成功');
+  })
+);
+
+// 更新用户基础资料：用户名、邮箱、手机号、意向岗位
+router.put(
+  '/profile',
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const { userId, username, email, phone, targetJob } = req.body || {};
+    if (!userId) {
+      return sendError(res, 400, 'userId 不能为空');
+    }
+    if (!req.user || req.user.userId !== userId) {
+      return sendError(res, 403, '无权限');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendError(res, 404, '用户不存在');
+    }
+
+    if (typeof username === 'string' && username.trim()) {
+      user.username = username.trim();
+    }
+
+    if (typeof email === 'string' && email.trim()) {
+      const normalizedEmail = email.toLowerCase().trim();
+      if (normalizedEmail !== user.email) {
+        const exists = await User.findOne({ email: normalizedEmail });
+        if (exists) {
+          return sendError(res, 400, '邮箱已被使用');
+        }
+        user.email = normalizedEmail;
+      }
+    }
+
+    if (typeof phone === 'string') {
+      user.phone = phone.trim();
+    }
+
+    if (typeof targetJob === 'string') {
+      user.targetJob = targetJob.trim();
+    }
+
+    await user.save();
+    return sendSuccess(res, null, '资料已更新');
   })
 );
 
