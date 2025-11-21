@@ -21,7 +21,7 @@
       <aside class="sidebar">
         <router-link class="menu-item" :class="{ active: isActive('/') }" to="/">
           <el-icon><Monitor /></el-icon>
-          <span>仪表盘</span>
+          <span>首页</span>
         </router-link>
         <router-link class="menu-item" :class="{ active: isActive('/jobs') }" to="/jobs">
           <el-icon><Briefcase /></el-icon>
