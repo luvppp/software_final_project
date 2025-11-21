@@ -36,7 +36,7 @@
           <div v-for="s in skills" :key="s" class="skill-tag" :class="tagClass(s)" @click="openAdd(true,s,ratingMap[s] || 3)">
             <span class="name">{{ s }}</span>
             <span class="stars">{{ starText(ratingMap[s] || 3) }}</span>
-            <el-button link type="success" class="remove" @click="removeSkill(s)">x</el-button>
+            <el-button link type="success" class="remove" @click.stop="removeSkill(s)">x</el-button>
           </div>
         </div>
       </el-card>
