@@ -29,6 +29,9 @@ export const getJobDetail = (id: string): Promise<{
   city?: string
   experience?: string
   education?: string
+  duties?: string[]
+  requirements?: string[]
+  companyIntro?: string
 }> => {
   return request.get(`/api/job/${id}`)
 }
