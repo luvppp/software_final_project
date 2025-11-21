@@ -39,27 +39,7 @@
       </template>
     </div>
 
-    <el-drawer v-model="drawer.visible" title="岗位详情" size="40%">
-      <div v-if="drawer.detail">
-        <div class="drawer-title">{{ drawer.detail.title }}</div>
-        <div class="drawer-sub">{{ drawer.detail.company }} · {{ drawer.detail.city || '—' }}</div>
-        <div class="drawer-section">
-          <div class="label">技能</div>
-          <div class="drawer-skills">
-            <el-tag v-for="s in drawer.detail.skills" :key="s" type="info" class="skill">{{ s }}</el-tag>
-          </div>
-        </div>
-        <div class="drawer-section">
-          <div class="label">薪资</div>
-          <div>{{ drawer.detail.salary || '—' }}</div>
-        </div>
-        <div class="drawer-section">
-          <div class="label">描述</div>
-          <div class="desc">{{ drawer.detail.description || '—' }}</div>
-        </div>
-      </div>
-      <el-empty v-else description="暂无数据" />
-    </el-drawer>
+    
   </div>
   
 </template>
@@ -68,7 +48,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { Search } from '@element-plus/icons-vue'
-import { listJobs, getJobDetail, listCities, type JobItem } from '@/api/job'
+import { useRouter } from 'vue-router'
+import { listJobs, listCities, type JobItem } from '@/api/job'
 
 const SearchIcon = Search
 
@@ -79,6 +60,7 @@ const jobs = ref<JobItem[]>([])
 const meta = reactive({ total: 0, page: 1, limit: 10 })
 
 const store = useUserStore()
+const router = useRouter()
 const fetchJobs = async (page?: number) => {
   loading.value = true
   try {
@@ -93,13 +75,8 @@ const fetchJobs = async (page?: number) => {
   }
 }
 
-const drawer = reactive<{ visible: boolean; detail: any | null }>({ visible: false, detail: null })
-const openDetail = async (id: string) => {
-  drawer.visible = true
-  drawer.detail = null
-  try {
-    drawer.detail = await getJobDetail(id)
-  } catch {}
+const openDetail = (id: string) => {
+  router.push(`/jobs/${id}`)
 }
 
 const fetchCities = async () => {
@@ -123,7 +100,7 @@ onMounted(() => {
 .search-btn { border-radius: $border-radius-button; }
 .list { display: grid; gap: $spacing-md; }
 .job-card { border-radius: $border-radius-card; border: 1px solid $color-border; }
-.job-card:hover { box-shadow: 0px 3px 0px rgba(0,0,0,0.15); }
+.job-card:hover { box-shadow: 0px 3px 0px rgba(0,0,0,0.15);cursor:pointer; }
 .job-card :deep(.el-card__body) { display: grid; grid-template-columns: 1fr 240px; align-items: center; padding: 10px 18px; min-height: 112px; }
 .left { display: flex; flex-direction: column; justify-content: center; gap: 8px; }
 .title { font-weight: 400; color: $color-title; }
@@ -135,10 +112,5 @@ onMounted(() => {
 .detail { width: auto; height: 26px; padding: 0 10px; border-radius: 18px; font-size: 13px; }
 .pager { display: flex; justify-content: center; margin-top: $spacing-md; }
 
-.drawer-title { font-weight: 600; color: $color-title; margin-bottom: 4px; }
-.drawer-sub { color: $color-subtle; margin-bottom: 12px; }
-.drawer-section { margin-bottom: 12px; }
-.drawer-skills { display: flex; flex-wrap: wrap; gap: 8px; }
-.label { color: $color-primary; font-weight: 600; margin-bottom: 6px; }
-.desc { white-space: pre-wrap; }
+
 </style>
