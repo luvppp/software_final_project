@@ -22,6 +22,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '岗位推荐', requiresAuth: true },
       },
       {
+        path: 'jobs/:id',
+        name: 'JobDetail',
+        component: () => import('@/views/JobDetailPage.vue'),
+        meta: { title: '岗位详情', requiresAuth: true },
+      },
+      {
         path: 'profile',
         name: 'Profile',
         component: () => import('@/views/ProfilePage.vue'),
