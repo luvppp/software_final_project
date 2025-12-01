@@ -7,7 +7,9 @@
   </div>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+// 学习计划页面：后续用于展示计划与进度
+</script>
 
 <style scoped lang="scss">
 @use '@/styles/tokens' as *;

@@ -71,6 +71,7 @@ const store = useUserStore()
 const userId = ref<string | null>(localStorage.getItem('userId'))
 const formRef = ref<FormInstance>()
 
+// 个人基础资料表单
 const form = reactive({
   username: '',
   email: '',
@@ -98,8 +99,10 @@ const rules: FormRules = {
   ],
 }
 
+// 本地存储评分的 Key（按用户维度隔离）
 const ratingsKey = computed(() => (userId.value ? `skillRatings:${userId.value}` : 'skillRatings'))
 
+// 加载本地技能评分
 const loadRatings = () => {
   try {
     const raw = localStorage.getItem(ratingsKey.value)
@@ -109,6 +112,7 @@ const loadRatings = () => {
   } catch {}
 }
 
+// 保存本地技能评分
 const saveRatings = () => {
   try {
     localStorage.setItem(ratingsKey.value, JSON.stringify(ratingMap))
@@ -123,6 +127,7 @@ const tagClass = (name: string) => {
   return 'tag-green'
 }
 
+// 从 Store 同步用户信息到表单与技能列表
 const syncFromStore = () => {
   if (store.userInfo) {
     form.username = store.userInfo.username

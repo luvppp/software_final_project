@@ -7,7 +7,9 @@
   </div>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+// 首页占位页面：展示欢迎信息
+</script>
 
 <style scoped lang="scss">
 @use '@/styles/tokens' as *;
