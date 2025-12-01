@@ -1,4 +1,5 @@
 import request from './request'
+// 用户模块：封装用户注册、登录、资料与技能相关接口
 
 /**
  * 用户相关 API 接口枚举

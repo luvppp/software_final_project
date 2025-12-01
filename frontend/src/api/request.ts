@@ -2,10 +2,10 @@ import axios from 'axios'
 import type { AxiosInstance, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
 
-// 后端 API 基础地址
+// 后端 API 基础地址：通过 Vite 环境变量控制，默认本地
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
-// 创建 axios 实例
+// 创建 axios 实例，用于全局统一的网络请求
 const request: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   timeout: 10000,
@@ -14,7 +14,7 @@ const request: AxiosInstance = axios.create({
   },
 })
 
-// 请求拦截器
+// 请求拦截器：自动附加 Authorization 头
 request.interceptors.request.use(
   (config) => {
     // 从 localStorage 获取 token
@@ -29,7 +29,7 @@ request.interceptors.request.use(
   }
 )
 
-// 响应拦截器
+// 响应拦截器：统一处理后端通用响应结构 { code, msg, data }
 request.interceptors.response.use(
   (response: AxiosResponse) => {
     const payload = response.data
