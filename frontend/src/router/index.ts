@@ -3,7 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 
 
-// 路由配置
+// 路由配置：主应用与认证页面，支持登录校验
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -76,6 +76,7 @@ const router = createRouter({
   routes,
 })
 
+// 全局前置守卫：设置页面标题并进行登录权限校验
 router.beforeEach((to, _from, next) => {
   const title = to.meta && (to.meta as any).title
   if (typeof title === 'string') {
