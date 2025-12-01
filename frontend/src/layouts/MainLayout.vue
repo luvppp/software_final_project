@@ -54,14 +54,18 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
+// 显示当前登录用户名（无信息时显示占位）
 const username = computed(() => userStore.userInfo?.username || '用户')
+// 菜单高亮判断
 const isActive = (path: string) => route.path === path
 
+// 退出登录：清除状态并跳转登录页
 const handleLogout = () => {
   userStore.logout()
   router.push('/login')
 }
 
+// 跳转个人资料
 const gotoProfile = () => router.push('/profile')
 </script>
 
