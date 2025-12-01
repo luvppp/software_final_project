@@ -27,7 +27,7 @@ const userStore = useUserStore()
 // 加载状态
 const loading = ref(false)
 
-// 处理登录
+// 处理登录：验证并调用 Store 登录，成功后跳转首页
 const handleLogin = async (data: LoginParams & { remember?: boolean }) => {
   loading.value = true
 

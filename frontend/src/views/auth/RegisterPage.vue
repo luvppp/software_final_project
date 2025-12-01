@@ -29,7 +29,7 @@ const userStore = useUserStore()
 // 加载状态
 const loading = ref(false)
 
-// 处理注册
+// 处理注册：注册成功后自动登录并跳转首页
 const handleRegister = async (data: RegisterParams & { confirmPassword?: string }) => {
   loading.value = true
 
