@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+// 用户状态管理：处理登录、退出、初始化与用户信息获取
 import { ref } from 'vue'
 import { login as loginApi, getUserInfo } from '@/api/user'
 import type { LoginParams, UserInfo } from '@/api/user'
