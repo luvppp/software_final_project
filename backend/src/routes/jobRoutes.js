@@ -18,6 +18,7 @@ router.get(
     const keyword = (req.query.keyword || '').trim();
     const city = (req.query.city || '').trim();
     let prefer = (req.query.prefer || '').trim();
+    const isInternRaw = (req.query.isIntern ?? '').toString().trim();
     if (!prefer && req.user && req.user.userId) {
       const u = await User.findById(req.user.userId).select('targetJob');
       prefer = (u && u.targetJob) ? String(u.targetJob).trim() : '';
@@ -35,6 +36,9 @@ router.get(
     if (city) {
       const cityRegex = new RegExp(`(?:${city})(?:市)?`, 'i');
       conds.push({ city: cityRegex });
+    }
+    if (isInternRaw === 'true' || isInternRaw === 'false') {
+      conds.push({ isIntern: isInternRaw === 'true' });
     }
     const query = conds.length ? (conds.length > 1 ? { $and: conds } : conds[0]) : {};
 
@@ -101,6 +105,7 @@ router.get(
       salary: job.salary,
       skills: job.skills,
       city: job.city,
+      isIntern: !!job.isIntern,
       keyword: job.keyword,
     }));
 
@@ -207,6 +212,7 @@ router.get(
       city: job.city,
       experience: job.experience,
       education: job.education,
+      url: job.url,
     });
   })
 );
