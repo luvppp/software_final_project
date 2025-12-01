@@ -1,7 +1,8 @@
 import mongoose from 'mongoose'
 
 // 连接 MongoDB
-mongoose.connect('mongodb://10.161.106.62:27017/software')
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://10.161.106.62:27017/software'
+mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err))
 
