@@ -1,7 +1,7 @@
 @use './tokens' as *;
 @use 'sass:color';
 
-// 全局样式重置
+// 全局样式重置与基础样式
 * {
   margin: 0;
   padding: 0;
@@ -17,7 +17,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-// 链接样式
+// 链接样式：默认主色，悬停略亮
 a {
   color: $color-primary;
   text-decoration: none;
@@ -28,7 +28,7 @@ a {
   }
 }
 
-// 容器
+// 容器：限制最大宽度与内边距
 .container {
   max-width: $container-width;
   margin: 0 auto;
