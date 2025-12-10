@@ -1,7 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { sendError } from '../utils/response.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'ai-career-secret';
+// 使用 access token 的密钥进行鉴权
+const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'ai-career-access';
 
 const authMiddleware = (req, res, next) => {
   // 解析 Authorization 头，兼容裸 token 与 Bearer 形式
@@ -15,8 +16,8 @@ const authMiddleware = (req, res, next) => {
   }
 
   try {
-    // 校验并解析 JWT，有效则将载荷挂到 req.user
-    const decoded = jwt.verify(token, JWT_SECRET);
+    // 校验并解析 access token，有效则将载荷挂到 req.user
+    const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
     req.user = decoded;
     return next();
   } catch (error) {
