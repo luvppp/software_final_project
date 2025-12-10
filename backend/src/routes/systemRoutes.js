@@ -13,7 +13,7 @@ const mongoStates = {
   3: 'disconnecting',
 };
 
-// 系统健康检查，返回进程与 Mongo 状态
+// 系统健康检查：返回进程与 Mongo 连接状态、运行时信息
 router.get('/status', authMiddleware, (req, res) => {
   const uptimeSeconds = process.uptime();
   const hours = Math.floor(uptimeSeconds / 3600);
@@ -28,7 +28,7 @@ router.get('/status', authMiddleware, (req, res) => {
   });
 });
 
-// AI 模块状态（示例接口，可扩展实际检测逻辑）
+// AI 模块状态（示例）：可扩展实际检测逻辑
 router.get('/ai-check', authMiddleware, (req, res) =>
   sendSuccess(res, { msg: 'AI 模块正常运行' })
 );
