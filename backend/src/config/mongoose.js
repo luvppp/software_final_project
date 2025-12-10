@@ -5,6 +5,7 @@ const MONGO_URI =
 
 // 统一建立 Mongo 连接，避免在多个文件中重复配置
 export const connectMongo = async () => {
+  // 复用现有连接，避免重复初始化
   if (mongoose.connection.readyState >= 1) {
     return mongoose.connection;
   }
@@ -12,6 +13,7 @@ export const connectMongo = async () => {
   try {
     // 配置 serverSelectionTimeoutMS，避免长时间等待网络超时
     await mongoose.connect(MONGO_URI, {
+      // 服务选择超时（5s），确保连接失败能及时抛出
       serverSelectionTimeoutMS: 5000,
     });
     console.log(`✅ MongoDB connected: ${MONGO_URI}`);
