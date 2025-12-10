@@ -15,9 +15,10 @@ const request: AxiosInstance = axios.create({
 })
 
 // 请求拦截器：自动附加 Authorization 头
+// 请求拦截：在发送前自动注入 JWT，用于后端鉴权
 request.interceptors.request.use(
   (config) => {
-    // 从 localStorage 获取 token
+    // 从本地读取 token，并写入 Authorization 头
     const token = localStorage.getItem('token')
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
@@ -30,12 +31,14 @@ request.interceptors.request.use(
 )
 
 // 响应拦截器：统一处理后端通用响应结构 { code, msg, data }
+// 响应拦截：统一处理后端返回的 { code, msg, data } 结构
 request.interceptors.response.use(
   (response: AxiosResponse) => {
     const payload = response.data
 
     if (payload && typeof payload === 'object' && 'code' in payload) {
       if (payload.code !== 200) {
+        // 非 200 统一弹出错误并 reject
         const message = payload.msg || '请求失败'
         ElMessage.error(message)
         return Promise.reject(new Error(message))
@@ -46,7 +49,7 @@ request.interceptors.response.use(
     return payload
   },
   (error) => {
-    // 处理 HTTP 错误
+    // 处理 HTTP/网络/其它错误并提示
     if (error.response) {
       const status = error.response.status
       const message = error.response.data?.msg || `请求失败: ${status}`
