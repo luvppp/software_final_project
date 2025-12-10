@@ -6,23 +6,24 @@ import type { LoginParams, UserInfo } from '@/api/user'
 
 export const useUserStore = defineStore('user', () => {
   // 状态
-  const token = ref<string | null>(localStorage.getItem('token'))
+  const accessToken = ref<string | null>(localStorage.getItem('accessToken'))
+  const refreshToken = ref<string | null>(localStorage.getItem('refreshToken'))
   const userInfo = ref<UserInfo | null>(null)
 
   // 初始化：从 localStorage 恢复状态
   const init = async () => {
-    const savedToken = localStorage.getItem('token')
+    const savedToken = localStorage.getItem('accessToken')
+    const savedRefresh = localStorage.getItem('refreshToken')
     const savedUserId = localStorage.getItem('userId')
 
     if (savedToken && savedUserId) {
-      // 恢复 token 并拉取用户信息
-      token.value = savedToken
+      accessToken.value = savedToken
+      refreshToken.value = savedRefresh
       // 尝试获取用户信息
       try {
         await fetchUserInfo(savedUserId)
       } catch (error) {
         console.error('初始化用户信息失败:', error)
-        // 如果获取失败，清除无效的 token
         logout()
       }
     }
@@ -33,9 +34,10 @@ export const useUserStore = defineStore('user', () => {
     try {
       const response = await loginApi(params)
       
-      // 保存 token 与 userId 到本地
-      token.value = response.token
-      localStorage.setItem('token', response.token)
+      accessToken.value = response.accessToken
+      refreshToken.value = response.refreshToken
+      localStorage.setItem('accessToken', response.accessToken)
+      localStorage.setItem('refreshToken', response.refreshToken)
       localStorage.setItem('userId', response.userId)
 
       // 获取用户信息并返回登录响应
@@ -43,8 +45,8 @@ export const useUserStore = defineStore('user', () => {
       
       return response
     } catch (error) {
-      // 登录失败时清除状态，避免脏数据
-      token.value = null
+      accessToken.value = null
+      refreshToken.value = null
       userInfo.value = null
       throw error
     }
@@ -65,20 +67,22 @@ export const useUserStore = defineStore('user', () => {
 
   // 退出登录
   const logout = () => {
-    token.value = null
+    accessToken.value = null
+    refreshToken.value = null
     userInfo.value = null
-    localStorage.removeItem('token')
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
     localStorage.removeItem('userId')
   }
 
   // 检查是否已登录
   const isLoggedIn = () => {
-    // 依据 token 是否存在判断登录状态
-    return !!token.value
+    return !!accessToken.value
   }
 
   return {
-    token,
+    accessToken,
+    refreshToken,
     userInfo,
     init,
     login,
