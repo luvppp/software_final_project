@@ -67,7 +67,7 @@
 
           <div class="actions">
             <el-button size="small" @click="openDetail(item.jobId)">查看岗位详情</el-button>
-            <el-button size="small" type="primary" @click="gotoLearning">生成学习计划</el-button>
+            <el-button size="small" type="primary" @click="generatePlan(item)">生成学习计划</el-button>
           </div>
         </el-card>
       </el-col>
@@ -93,6 +93,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { matchJobs, getJobDetail, type MatchItem } from '@/api/job'
+import { createLearningPlan } from '@/api/learning'
 
 const router = useRouter()
 const route = useRoute()
@@ -114,6 +115,15 @@ const currentMatch = computed(() => {
 
 const openDetail = (id: string) => router.push({ name: 'JobDetail', params: { id } })
 const gotoLearning = () => router.push({ name: 'Learning' })
+const generatePlan = async (m: RichMatchItem) => {
+  const userId = localStorage.getItem('userId') || store.userInfo?._id || ''
+  const missing = Array.isArray(m?.missingSkills) ? m.missingSkills : []
+  if (!userId) return router.push({ name: 'Learning' })
+  try {
+    await createLearningPlan({ userId, missingSkills: missing })
+  } catch {}
+  router.push({ name: 'Learning' })
+}
 const gotoProfile = () => router.push({ name: 'Profile' })
 
 const buildReason = (m: RichMatchItem) => {
