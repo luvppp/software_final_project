@@ -39,6 +39,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/LearningPage.vue'),
         meta: { title: '学习计划', requiresAuth: true },
       },
+      {
+        path: 'match',
+        name: 'MatchResult',
+        component: () => import('@/views/MatchResultPage.vue'),
+        meta: { title: '智能匹配结果', requiresAuth: true },
+      },
     ],
   },
   {
