@@ -16,7 +16,7 @@ app.use(router)
 app.use(ElementPlus)
 
 const userStore = useUserStore(pinia)
-// 初始化用户状态（从本地缓存恢复并拉取用户信息）
+// 初始化用户状态：从本地恢复 token，并尝试拉取用户信息
 userStore.init()
 
 app.mount('#app')
