@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema(
       filename: { type: String, default: '' },
       mimeType: { type: String, default: '' },
       size: { type: Number, default: 0 },
+      // 二进制简历数据（通过 API 返回时不直接暴露）
       data: { type: Buffer },
       uploadedAt: { type: Date },
     },
