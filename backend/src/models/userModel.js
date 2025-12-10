@@ -15,6 +15,13 @@ const userSchema = new mongoose.Schema(
     phone: { type: String, default: '' },
     skills: { type: [String], default: [] },
     targetJob: { type: String, default: '' },
+    resume: {
+      filename: { type: String, default: '' },
+      mimeType: { type: String, default: '' },
+      size: { type: Number, default: 0 },
+      data: { type: Buffer },
+      uploadedAt: { type: Date },
+    },
   },
   {
     timestamps: true,
@@ -25,4 +32,3 @@ const userSchema = new mongoose.Schema(
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 export default User;
-
