@@ -75,6 +75,7 @@ const gotoProfile = () => router.push('/profile')
 .app-shell {
   height: 100vh;
   background: $color-background;
+  overflow: hidden;
 }
 
 .topbar {
@@ -85,6 +86,9 @@ const gotoProfile = () => router.push('/profile')
   padding: 0 $spacing-xl;
   background: #fff;
   border-bottom: 1px solid $color-border;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
 .brand {
@@ -109,6 +113,8 @@ const gotoProfile = () => router.push('/profile')
   padding: $spacing-lg $spacing-md;
   height: 100%;
   overflow-y: auto;
+  position: sticky;
+  top: 56px;
 }
 
 .menu-item {
@@ -124,5 +130,5 @@ const gotoProfile = () => router.push('/profile')
 .menu-item:hover { background: #f2f5ff; }
 .menu-item.active { background: #eaf2ff; color: $color-primary; font-weight: 600; }
 
-.content { padding: $spacing-xl; }
+.content { padding: $spacing-xl; height: calc(100vh - 56px); overflow-y: auto; }
 </style>
