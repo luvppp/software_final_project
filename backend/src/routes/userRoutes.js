@@ -149,7 +149,7 @@ router.get(
     if (!req.user || req.user.userId !== userId) {
       return sendError(res, 403, '无权限');
     }
-    const user = await User.findById(userId).select('-password');
+    const user = await User.findById(userId).select('-password -resume.data');
 
     if (!user) {
       return sendError(res, 404, '用户不存在');
@@ -159,5 +159,87 @@ router.get(
   })
 );
 
-export default router;
+router.put(
+  '/resume',
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const { userId, fileName, mimeType, base64 } = req.body || {};
+    if (!userId || !fileName || !mimeType || !base64) {
+      return sendError(res, 400, '参数不完整');
+    }
+    if (!req.user || req.user.userId !== userId) {
+      return sendError(res, 403, '无权限');
+    }
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendError(res, 404, '用户不存在');
+    }
+    const raw = String(base64);
+    const cleaned = raw.replace(/^data:[^;]+;base64,/, '');
+    const buf = Buffer.from(cleaned, 'base64');
+    const maxSize = 5 * 1024 * 1024;
+    if (!buf.length || buf.length > maxSize) {
+      return sendError(res, 400, '文件过大或内容无效');
+    }
+    user.resume = {
+      filename: String(fileName),
+      mimeType: String(mimeType),
+      size: buf.length,
+      data: buf,
+      uploadedAt: new Date(),
+    };
+    await user.save();
+    return sendSuccess(res, {
+      filename: user.resume.filename,
+      mimeType: user.resume.mimeType,
+      size: user.resume.size,
+      uploadedAt: user.resume.uploadedAt,
+    }, '简历已上传');
+  })
+);
 
+router.get(
+  '/:userId/resume',
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+    if (!req.user || req.user.userId !== userId) {
+      return sendError(res, 403, '无权限');
+    }
+    const user = await User.findById(userId).select('resume');
+    if (!user || !user.resume || !user.resume.data) {
+      return sendError(res, 404, '未上传简历');
+    }
+    const b64 = user.resume.data.toString('base64');
+    return sendSuccess(res, {
+      filename: user.resume.filename,
+      mimeType: user.resume.mimeType,
+      size: user.resume.size,
+      uploadedAt: user.resume.uploadedAt,
+      base64: `data:${user.resume.mimeType};base64,${b64}`,
+    });
+  })
+);
+
+router.delete(
+  '/resume',
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const { userId } = req.body || {};
+    if (!userId) {
+      return sendError(res, 400, 'userId 不能为空');
+    }
+    if (!req.user || req.user.userId !== userId) {
+      return sendError(res, 403, '无权限');
+    }
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendError(res, 404, '用户不存在');
+    }
+    user.resume = undefined;
+    await user.save();
+    return sendSuccess(res, null, '简历已删除');
+  })
+);
+
+export default router;
