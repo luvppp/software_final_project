@@ -15,6 +15,7 @@ export const useUserStore = defineStore('user', () => {
     const savedUserId = localStorage.getItem('userId')
 
     if (savedToken && savedUserId) {
+      // 恢复 token 并拉取用户信息
       token.value = savedToken
       // 尝试获取用户信息
       try {
@@ -32,17 +33,17 @@ export const useUserStore = defineStore('user', () => {
     try {
       const response = await loginApi(params)
       
-      // 保存 token
+      // 保存 token 与 userId 到本地
       token.value = response.token
       localStorage.setItem('token', response.token)
       localStorage.setItem('userId', response.userId)
 
-      // 获取用户信息
+      // 获取用户信息并返回登录响应
       await fetchUserInfo(response.userId)
       
       return response
     } catch (error) {
-      // 登录失败时清除状态
+      // 登录失败时清除状态，避免脏数据
       token.value = null
       userInfo.value = null
       throw error
@@ -53,6 +54,7 @@ export const useUserStore = defineStore('user', () => {
   const fetchUserInfo = async (userId: string) => {
     try {
       const data = await getUserInfo(userId)
+      // 更新用户信息状态
       userInfo.value = data
       return data
     } catch (error) {
@@ -71,6 +73,7 @@ export const useUserStore = defineStore('user', () => {
 
   // 检查是否已登录
   const isLoggedIn = () => {
+    // 依据 token 是否存在判断登录状态
     return !!token.value
   }
 
