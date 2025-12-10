@@ -147,20 +147,20 @@ const requiredSkills = computed(() => (job.value.skills || []).slice(0, 8))
 
 // 计算属性：技能匹配度
 const matchScore = computed(() => {
+  if (typeof (job.value as any).matchScore === 'number') return Number((job.value as any).matchScore)
   const userSkills = (store.userInfo?.skills || []).map((s) => String(s).toLowerCase())
   const jobSkills = (job.value.skills || []).map((s: any) => String(s).toLowerCase())
-
   if (!jobSkills.length) return 0
-
   const matched = jobSkills.filter((s: any) => userSkills.includes(s))
   return Number((matched.length / jobSkills.length).toFixed(2))
 })
 
 // 计算属性：缺失技能
 const missingSkills = computed(() => {
+  const preset = (job.value as any).missingSkills
+  if (Array.isArray(preset)) return preset
   const userSkills = (store.userInfo?.skills || []).map((s) => String(s).toLowerCase())
-  const jobSkills = (job.value.skills || []).map((s: any) => String(s)) // 保持原大小写展示
-
+  const jobSkills = (job.value.skills || []).map((s: any) => String(s))
   return jobSkills.filter((s: any) => !userSkills.includes(String(s).toLowerCase()))
 })
 
@@ -168,8 +168,7 @@ const missingSkills = computed(() => {
 const goBack = () => router.push('/jobs')
 const gotoLearning = () => router.push('/learning')
 const matchNow = () => {
-  // 预留功能：立即匹配
-  console.log('Match now clicked')
+  router.push({ name: 'MatchResult', query: { from: route.params.id } })
 }
 
 const viewOriginal = () => {
