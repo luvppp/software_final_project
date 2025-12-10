@@ -9,6 +9,8 @@ export enum UserAPI {
   REGISTER = '/api/user/register',
   /** 用户登录 */
   LOGIN = '/api/user/login',
+  /** 刷新 access token */
+  REFRESH_TOKEN = '/api/user/token/refresh',
   /** 更新用户技能/目标岗位 */
   UPDATE_SKILLS = '/api/user/skills',
   /** 更新用户基础资料 */
@@ -36,7 +38,8 @@ export interface LoginParams {
 
 /** 登录响应：返回 JWT 与用户标识 */
 export interface LoginResponse {
-  token: string
+  accessToken: string
+  refreshToken: string
   userId: string
 }
 
@@ -45,6 +48,10 @@ export interface LoginResponse {
 export const login = (params: LoginParams): Promise<LoginResponse> => {
   // POST 登录请求，携带邮箱与密码，后端返回 token 与 userId
   return request.post(UserAPI.LOGIN, params)
+}
+
+export const refreshAccessToken = (refreshToken: string): Promise<{ accessToken: string }> => {
+  return request.post(UserAPI.REFRESH_TOKEN, { refreshToken })
 }
 
 // 用户注册
