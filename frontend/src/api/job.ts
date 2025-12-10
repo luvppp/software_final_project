@@ -36,6 +36,8 @@ export const getJobDetail = (id: string): Promise<{
   duties?: string[]
   requirements?: string[]
   companyIntro?: string
+  matchScore?: number
+  missingSkills?: string[]
 }> => {
   return request.get(`/api/job/${id}`)
 }
@@ -43,4 +45,16 @@ export const getJobDetail = (id: string): Promise<{
 // 城市列表查询：后端基于岗位库去重并按中文排序
 export const listCities = (): Promise<string[]> => {
   return request.get('/api/job/cities')
+}
+
+export interface MatchItem {
+  jobId: string
+  jobTitle: string
+  company: string
+  matchScore: number
+  missingSkills: string[]
+}
+
+export const matchJobs = (params: { userId?: string; skills?: string[] }): Promise<MatchItem[]> => {
+  return request.post('/api/job/match', params)
 }
