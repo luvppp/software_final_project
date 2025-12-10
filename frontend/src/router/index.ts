@@ -76,7 +76,8 @@ const router = createRouter({
   routes,
 })
 
-// 全局前置守卫：设置页面标题并进行登录权限校验
+// 全局前置守卫：
+// 1) 设置页面标题；2) 检查需要登录的路由并进行跳转
 router.beforeEach((to, _from, next) => {
   const title = to.meta && (to.meta as any).title
   if (typeof title === 'string') {
