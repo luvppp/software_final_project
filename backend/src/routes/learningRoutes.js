@@ -9,6 +9,7 @@ import authMiddleware from '../middleware/authMiddleware.js';
 const router = Router();
 
 // 根据缺失技能动态生成课程计划
+// 根据缺失技能生成课程条目（平台默认 Bilibili）
 const buildPlanItems = (skills = []) =>
   skills.map((skill) => ({
     skill,
@@ -19,6 +20,7 @@ const buildPlanItems = (skills = []) =>
   }));
 
 // 校验 userId 是否合法并返回用户
+// 校验 ObjectId 并查询用户
 const ensureUser = async (userId) => {
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     return null;
@@ -48,6 +50,7 @@ router.post(
     const skills = Array.isArray(missingSkills) ? missingSkills : [];
     const plan = buildPlanItems(skills);
 
+    // upsert 覆盖/创建学习计划记录
     const record = await LearningPlan.findOneAndUpdate(
       { userId: user.id },
       { plan },
@@ -91,6 +94,7 @@ router.put(
       return sendError(res, 404, '技能未在学习计划中');
     }
 
+    // 进度限制在 0-100 范围
     item.progress = Math.max(0, Math.min(100, progress));
     await record.save();
 
