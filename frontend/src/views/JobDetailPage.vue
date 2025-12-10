@@ -118,7 +118,7 @@
           </div>
 
           <!-- 生成学习计划按钮 -->
-          <el-button type="primary" class="plan-btn" @click="gotoLearning">生成学习计划</el-button>
+          <el-button type="primary" class="plan-btn" @click="generatePlan">生成学习计划</el-button>
         </el-card>
       </div>
     </div>
@@ -129,6 +129,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getJobDetail } from '@/api/job'
+import { createLearningPlan } from '@/api/learning'
 import { useUserStore } from '@/stores/userStore'
 import { ArrowLeft, OfficeBuilding, Location, Wallet } from '@element-plus/icons-vue'
 
@@ -167,6 +168,15 @@ const missingSkills = computed(() => {
 // 路由跳转方法
 const goBack = () => router.push('/jobs')
 const gotoLearning = () => router.push('/learning')
+const generatePlan = async () => {
+  const userId = localStorage.getItem('userId') || (store.userInfo as any)?._id || ''
+  const missing = Array.isArray(missingSkills.value) ? missingSkills.value : []
+  if (!userId) return gotoLearning()
+  try {
+    await createLearningPlan({ userId, missingSkills: missing })
+  } catch {}
+  gotoLearning()
+}
 const matchNow = () => {
   router.push({ name: 'MatchResult', query: { from: route.params.id } })
 }
