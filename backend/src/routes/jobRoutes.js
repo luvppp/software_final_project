@@ -13,16 +13,19 @@ router.get(
   '/list',
   authMiddleware,
   asyncHandler(async (req, res) => {
+    // 读取分页与过滤参数
     const page = Number(req.query.page) > 0 ? Number(req.query.page) : 1;
     const limit = Number(req.query.limit) > 0 ? Number(req.query.limit) : 10;
     const keyword = (req.query.keyword || '').trim();
     const city = (req.query.city || '').trim();
     let prefer = (req.query.prefer || '').trim();
     const isInternRaw = (req.query.isIntern ?? '').toString().trim();
+    // 若未传 prefer，则从用户意向岗位填充
     if (!prefer && req.user && req.user.userId) {
       const u = await User.findById(req.user.userId).select('targetJob');
       prefer = (u && u.targetJob) ? String(u.targetJob).trim() : '';
     }
+    // 构建查询条件（关键词、城市、实习）
     const conds = [];
     if (keyword) {
       conds.push({
@@ -34,6 +37,7 @@ router.get(
       });
     }
     if (city) {
+      // 城市匹配兼容“xx市”后缀
       const cityRegex = new RegExp(`(?:${city})(?:市)?`, 'i');
       conds.push({ city: cityRegex });
     }
@@ -46,6 +50,7 @@ router.get(
     let data;
     if (prefer) {
       const preferRegex = prefer;
+      // 使用聚合：根据 prefer 关键词计算 preferScore，优先排序
       const pipeline = [
         { $match: query },
         {
@@ -79,6 +84,7 @@ router.get(
       total = out[0]?.total?.[0]?.count || 0;
       data = out[0]?.data || [];
     } else {
+      // 普通查询：计数与分页查询并行
       const resp = await Promise.all([
         Job.countDocuments(query),
         Job.find(query)
@@ -149,6 +155,7 @@ router.post(
     const jobList = await Job.find({}).limit(200);
     const matches = jobList
       .map((job) => {
+        // 计算匹配与缺失技能，得出匹配度
         const matched = job.skills.filter((skill) => skillSet.includes(skill));
         const missingSkills = job.skills.filter(
           (skill) => !skillSet.includes(skill)
@@ -190,6 +197,7 @@ router.get(
   authMiddleware,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
+    // 校验 ObjectId，避免非法请求触发异常
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return sendError(res, 400, '岗位 ID 不合法');
     }
