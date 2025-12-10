@@ -15,6 +15,10 @@ export enum UserAPI {
   UPDATE_PROFILE = '/api/user/profile',
   /** 获取用户详情 */
   GET_INFO = '/api/user',
+  /** 上传用户简历 */
+  UPLOAD_RESUME = '/api/user/resume',
+  /** 获取用户简历 */
+  GET_RESUME = '/api/user',
 }
 
 // 登录接口
@@ -53,6 +57,7 @@ export interface UserInfo {
   skills?: string[]
   targetJob?: string,
   phone:string
+  resume?: { filename: string; mimeType: string; size: number; uploadedAt?: string }
 }
 
 // 获取用户信息
@@ -82,4 +87,30 @@ export interface UpdateProfileParams {
 
 export const updateProfile = (params: UpdateProfileParams) => {
   return request.put(UserAPI.UPDATE_PROFILE, params)
+}
+
+export interface UploadResumeParams {
+  userId: string
+  fileName: string
+  mimeType: string
+  base64: string
+}
+
+export interface ResumeMeta {
+  filename: string
+  mimeType: string
+  size: number
+  uploadedAt?: string
+}
+
+export const uploadResume = (params: UploadResumeParams): Promise<ResumeMeta> => {
+  return request.put(UserAPI.UPLOAD_RESUME, params)
+}
+
+export const getResume = (userId: string): Promise<{ base64: string } & ResumeMeta> => {
+  return request.get(`${UserAPI.GET_RESUME}/${userId}/resume`)
+}
+
+export const deleteResume = (userId: string): Promise<null> => {
+  return request.delete(UserAPI.UPLOAD_RESUME, { data: { userId } })
 }
