@@ -2,6 +2,7 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import Job from '../models/jobModel.js';
 import User from '../models/userModel.js';
+import JobMatch from '../models/jobMatchModel.js';
 import { sendError, sendSuccess } from '../utils/response.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import authMiddleware from '../middleware/authMiddleware.js';
@@ -152,29 +153,104 @@ router.post(
       return sendError(res, 400, '缺少技能信息');
     }
 
+    // 读取用户意向岗位（prefer）
+    let prefer = '';
+    if (userId) {
+      const u = await User.findById(userId).select('targetJob');
+      prefer = (u && u.targetJob) ? String(u.targetJob).trim() : '';
+    } else if (req.user && req.user.userId) {
+      const u = await User.findById(req.user.userId).select('targetJob');
+      prefer = (u && u.targetJob) ? String(u.targetJob).trim() : '';
+    }
+    const preferRegex = prefer ? new RegExp(prefer, 'i') : null;
+
+    if (userId) {
+      const stored = await JobMatch.find({ userId }).sort({ matchScore: -1 }).limit(1000);
+      if (stored && stored.length) {
+        const ids = stored.map((m) => m.jobId);
+        const jobs = await Job.find({ _id: { $in: ids } }).select('_id title company skills keyword');
+        const jobMap = new Map(jobs.map((j) => [String(j._id), j]));
+        const out = stored
+          .map((m) => {
+            const j = jobMap.get(String(m.jobId));
+            return j
+              ? {
+                jobId: String(m.jobId),
+                jobTitle: j.title,
+                company: j.company,
+                matchScore: m.matchScore || 0,
+                missingSkills: m.missingSkills || [],
+                skills: j.skills || [],
+                keyword: j.keyword,
+              }
+              : null;
+          })
+          .filter(Boolean)
+          .filter((item) => {
+            const skillCountOk = Array.isArray(item.skills) && item.skills.length >= 3;
+            const preferOk = preferRegex ? (preferRegex.test(item.keyword || '') || preferRegex.test(item.jobTitle || '')) : true;
+            return skillCountOk && preferOk;
+          })
+          .slice(0, 500);
+        return sendSuccess(res, out);
+      }
+    }
+
     const jobList = await Job.find({}).limit(200);
+    const userSkillsLower = skillSet.map((s) => String(s).toLowerCase());
     const matches = jobList
       .map((job) => {
-        // 计算匹配与缺失技能，得出匹配度
-        const matched = job.skills.filter((skill) => skillSet.includes(skill));
-        const missingSkills = job.skills.filter(
-          (skill) => !skillSet.includes(skill)
-        );
-        const matchScore = job.skills.length
-          ? Number((matched.length / job.skills.length).toFixed(2))
-          : 0;
-
+        const jobSkillsLower = (job.skills || []).map((s) => String(s).toLowerCase());
+        const matchedCount = jobSkillsLower.filter((s) => userSkillsLower.includes(s)).length;
+        const missingSkills = (job.skills || []).filter((s) => !userSkillsLower.includes(String(s).toLowerCase()));
+        const matchScore = jobSkillsLower.length ? Number((matchedCount / jobSkillsLower.length).toFixed(2)) : 0;
         return {
           jobId: job.id,
           jobTitle: job.title,
           company: job.company,
           matchScore,
           missingSkills,
+          skills: job.skills || [],
+          keyword: job.keyword,
         };
+      })
+      .filter((item) => {
+        const skillCountOk = Array.isArray(item.skills) && item.skills.length >= 3;
+        const preferOk = preferRegex ? (preferRegex.test(item.keyword || '') || preferRegex.test(item.jobTitle || '')) : true;
+        return skillCountOk && preferOk;
       })
       .sort((a, b) => b.matchScore - a.matchScore);
 
     return sendSuccess(res, matches);
+  })
+);
+
+router.get(
+  '/match/top/:userId',
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return sendError(res, 400, 'userId 不合法');
+    }
+    if (!req.user || req.user.userId !== userId) {
+      return sendError(res, 403, '无权限');
+    }
+    const stored = await JobMatch.find({ userId }).sort({ matchScore: -1 }).limit(3);
+    const ids = stored.map((m) => m.jobId);
+    const jobs = await Job.find({ _id: { $in: ids } }).select('_id title company');
+    const jobMap = new Map(jobs.map((j) => [String(j._id), j]));
+    const out = stored.map((m) => {
+      const j = jobMap.get(String(m.jobId));
+      return {
+        jobId: String(m.jobId),
+        jobTitle: j ? j.title : '',
+        company: j ? j.company : '',
+        matchScore: m.matchScore || 0,
+        missingSkills: m.missingSkills || [],
+      };
+    });
+    return sendSuccess(res, out);
   })
 );
 
@@ -207,6 +283,16 @@ router.get(
       return sendError(res, 404, '岗位不存在');
     }
 
+    let matchScore = null;
+    let missingSkills = null;
+    if (req.user && req.user.userId && mongoose.Types.ObjectId.isValid(req.user.userId)) {
+      const m = await JobMatch.findOne({ userId: req.user.userId, jobId: id }).select('matchScore missingSkills');
+      if (m) {
+        matchScore = m.matchScore ?? null;
+        missingSkills = m.missingSkills ?? null;
+      }
+    }
+
     return sendSuccess(res, {
       jobId: job.id,
       title: job.title,
@@ -221,9 +307,10 @@ router.get(
       experience: job.experience,
       education: job.education,
       url: job.url,
+      matchScore,
+      missingSkills,
     });
   })
 );
 
 export default router;
-
