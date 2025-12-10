@@ -6,10 +6,15 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import authMiddleware from '../middleware/authMiddleware.js';
 import Job from '../models/jobModel.js';
+import JobMatch from '../models/jobMatchModel.js';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { spawn } from 'child_process';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'ai-career-secret';
+// 令牌配置：短期 access + 长期 refresh
+const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'ai-career-access';
+const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET || 'ai-career-refresh';
+const ACCESS_TOKEN_EXPIRES = process.env.JWT_ACCESS_EXPIRES || '15m';
+const REFRESH_TOKEN_EXPIRES = process.env.JWT_REFRESH_EXPIRES || '30d';
 
 const router = Router();
 // 路由模块职责：
@@ -46,7 +51,7 @@ router.post(
   })
 );
 
-// 用户登录：校验邮箱与密码（bcrypt 对比），返回 JWT 与 userId
+// 用户登录：校验邮箱与密码（bcrypt 对比），返回 accessToken/refreshToken 与 userId
 router.post(
   '/login',
   asyncHandler(async (req, res) => {
@@ -66,15 +71,54 @@ router.post(
       return sendError(res, 401, '邮箱或密码错误');
     }
 
-    return sendSuccess(
-      res,
-      {
-        // 颁发 JWT（7 天有效期），载荷仅包含 userId
-        token: jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' }),
-        userId: user.id,
-      },
-      '登录成功'
-    );
+    const accessToken = jwt.sign({ userId: user.id, type: 'access' }, ACCESS_TOKEN_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES });
+    const refreshToken = jwt.sign({ userId: user.id, type: 'refresh' }, REFRESH_TOKEN_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES });
+
+    try {
+      const userSkillsLower = (user.skills || []).map((s) => String(s).toLowerCase());
+      const jobs = await Job.find({}).select('_id title company skills').limit(1000);
+      const bulkOps = jobs.map((job) => {
+        const jobSkillsLower = (job.skills || []).map((s) => String(s).toLowerCase());
+        const matchedCount = jobSkillsLower.filter((s) => userSkillsLower.includes(s)).length;
+        const score = jobSkillsLower.length ? Number((matchedCount / jobSkillsLower.length).toFixed(2)) : 0;
+        const missing = (job.skills || []).filter((s) => !userSkillsLower.includes(String(s).toLowerCase()));
+        return {
+          updateOne: {
+            filter: { userId: user._id, jobId: job._id },
+            update: { $set: { matchScore: score, missingSkills: missing, updatedAt: new Date() } },
+            upsert: true,
+          },
+        };
+      });
+      if (bulkOps.length) {
+        await JobMatch.bulkWrite(bulkOps, { ordered: false });
+      }
+    } catch (e) {
+      console.error('登录后初始化匹配度失败:', e?.message || e);
+    }
+
+    return sendSuccess(res, { accessToken, refreshToken, userId: user.id }, '登录成功');
+  })
+);
+
+// 刷新 access token：使用 refresh token 换取新的短期 access token
+router.post(
+  '/token/refresh',
+  asyncHandler(async (req, res) => {
+    const { refreshToken } = req.body || {};
+    if (!refreshToken) {
+      return sendError(res, 400, '缺少 refreshToken');
+    }
+    try {
+      const payload = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
+      if (!payload || payload.type !== 'refresh' || !payload.userId) {
+        return sendError(res, 401, 'refreshToken 无效');
+      }
+      const accessToken = jwt.sign({ userId: payload.userId, type: 'access' }, ACCESS_TOKEN_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES });
+      return sendSuccess(res, { accessToken }, '刷新成功');
+    } catch (e) {
+      return sendError(res, 401, 'refreshToken 无效或已过期');
+    }
   })
 );
 
@@ -103,6 +147,29 @@ router.put(
     }
     // 持久化变更
     await user.save();
+
+    try {
+      const userSkillsLower = (user.skills || []).map((s) => String(s).toLowerCase());
+      const jobs = await Job.find({}).select('_id title company skills').limit(1000);
+      const bulkOps = jobs.map((job) => {
+        const jobSkillsLower = (job.skills || []).map((s) => String(s).toLowerCase());
+        const matchedCount = jobSkillsLower.filter((s) => userSkillsLower.includes(s)).length;
+        const score = jobSkillsLower.length ? Number((matchedCount / jobSkillsLower.length).toFixed(2)) : 0;
+        const missing = (job.skills || []).filter((s) => !userSkillsLower.includes(String(s).toLowerCase()));
+        return {
+          updateOne: {
+            filter: { userId: user._id, jobId: job._id },
+            update: { $set: { matchScore: score, missingSkills: missing, updatedAt: new Date() } },
+            upsert: true,
+          },
+        };
+      });
+      if (bulkOps.length) {
+        await JobMatch.bulkWrite(bulkOps, { ordered: false });
+      }
+    } catch (e) {
+      console.error('更新用户技能后计算匹配度失败:', e?.message || e);
+    }
 
     return sendSuccess(res, null, '技能更新成功');
   })
