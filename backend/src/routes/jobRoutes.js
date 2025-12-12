@@ -268,6 +268,64 @@ router.get(
   })
 );
 
+router.post(
+  '/ai/reason',
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    const baseURL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
+    const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+    if (!apiKey) return sendError(res, 500, 'AI 服务未配置');
+    const {
+      type,
+      jobTitle,
+      company,
+      requiredSkills = [],
+      missingSkills = [],
+      matchScore = 0,
+      userSkills = [],
+    } = req.body || {};
+    const t = String(type || 'reason').toLowerCase();
+    const reqSkills = (Array.isArray(requiredSkills) ? requiredSkills : []).slice(0, 8).join('、');
+    const missSkills = (Array.isArray(missingSkills) ? missingSkills : []).slice(0, 4).join('、');
+    const usrSkills = (Array.isArray(userSkills) ? userSkills : []).slice(0, 8).join('、');
+    const title = String(jobTitle || '').trim();
+    const comp = String(company || '').trim();
+    const pct = Math.round(Number(matchScore || 0) * 100);
+    const basePrompt =
+      `候选人技能：${usrSkills || '未提供'}。\n岗位：${title || '未知'}（${comp || '未知'}）。\n岗位技能：${reqSkills || '未知'}。\n缺失技能：${missSkills || '无'}。\n匹配度：${isFinite(pct) ? pct + '%' : '未知'}。\n`;
+    const prompt =
+      t === 'advice'
+        ? `角色：资深职业顾问。\n要求：中文输出2-4句，避免列点，具体可执行。\n必须包含：已具备的优势、关键缺口、提升建议（包含学习方向或时间节奏）。\n${basePrompt}目标：给出当前岗位的建议。`
+        : `角色：资深职业顾问。\n要求：中文输出2-4句，避免列点，具体可执行。\n必须包含：匹配优势、为何推荐的理由、需要补充的技能与实践路径。\n${basePrompt}目标：给出推荐岗位的推荐理由。`;
+    const body = {
+      model,
+      messages: [
+        { role: 'system', content: '你是职业发展顾问，回答中文、简洁具体。' },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.6,
+      max_tokens: 320,
+    };
+    const r = await fetch(`${baseURL}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const text = await r.text();
+      return sendError(res, r.status, text || 'AI 服务错误');
+    }
+    const out = await r.json();
+    const content = out?.choices?.[0]?.message?.content?.trim() || out?.choices?.[0]?.text?.trim() || '';
+    if (!content) return sendError(res, 500, 'AI 未生成内容');
+    return sendSuccess(res, { text: content });
+  })
+);
+
 router.get(
   '/:id',
   authMiddleware,
