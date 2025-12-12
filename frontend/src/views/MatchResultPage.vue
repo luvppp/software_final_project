@@ -165,7 +165,8 @@ onMounted(async () => {
       }
     }
     results.value = enriched
-    if (currentJob.value) {
+    const advicePromise = (async () => {
+      if (!currentJob.value) return
       const userSkills = (store.userInfo?.skills || [])
       const jobSkills = (currentJob.value.skills || [])
       const userLower = userSkills.map(s => String(s).toLowerCase())
@@ -176,6 +177,7 @@ onMounted(async () => {
       try {
         const r = await generateAiReason({
           type: 'advice',
+          jobId: currentJob.value.jobId || String(route.query.from || ''),
           jobTitle: currentJob.value.title,
           company: currentJob.value.company,
           requiredSkills: jobSkills,
@@ -185,11 +187,12 @@ onMounted(async () => {
         })
         aiAdvice.value = r.text || ''
       } catch {}
-    }
-    for (const item of results.value.slice(0, 3)) {
+    })()
+    const reasonPromises = results.value.slice(0, 3).map(async (item) => {
       try {
         const r = await generateAiReason({
           type: 'reason',
+          jobId: item.jobId,
           jobTitle: item.jobTitle,
           company: item.company,
           requiredSkills: item.skills || [],
@@ -201,7 +204,8 @@ onMounted(async () => {
           aiReasons.value[item.jobId] = r.text
         }
       } catch {}
-    }
+    })
+    await Promise.all([advicePromise, ...reasonPromises])
   } catch (e) {
     console.error(e)
   }
