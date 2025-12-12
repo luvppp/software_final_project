@@ -278,6 +278,7 @@ router.post(
     if (!apiKey) return sendError(res, 500, 'AI 服务未配置');
     const {
       type,
+      jobId,
       jobTitle,
       company,
       requiredSkills = [],
@@ -286,6 +287,14 @@ router.post(
       userSkills = [],
     } = req.body || {};
     const t = String(type || 'reason').toLowerCase();
+    const uid = req.user?.userId || '';
+    const validJobId = jobId && mongoose.Types.ObjectId.isValid(jobId) ? String(jobId) : '';
+    let skillsSource = Array.isArray(userSkills) ? userSkills : [];
+    if (!skillsSource.length && uid) {
+      const u = await User.findById(uid).select('skills');
+      skillsSource = u?.skills || [];
+    }
+    const fp = (skillsSource || []).map((s) => String(s).toLowerCase().trim()).filter(Boolean).sort().join('|');
     const reqSkills = (Array.isArray(requiredSkills) ? requiredSkills : []).slice(0, 8).join('、');
     const missSkills = (Array.isArray(missingSkills) ? missingSkills : []).slice(0, 4).join('、');
     const usrSkills = (Array.isArray(userSkills) ? userSkills : []).slice(0, 8).join('、');
@@ -307,6 +316,17 @@ router.post(
       temperature: 0.6,
       max_tokens: 320,
     };
+    if (uid && validJobId) {
+      let jm = await JobMatch.findOne({ userId: uid, jobId: validJobId });
+      if (jm) {
+        if (t === 'advice' && jm.aiAdvice && jm.aiAdviceFp === fp) {
+          return sendSuccess(res, { text: jm.aiAdvice });
+        }
+        if (t === 'reason' && jm.aiReason && jm.aiReasonFp === fp) {
+          return sendSuccess(res, { text: jm.aiReason });
+        }
+      }
+    }
     const r = await fetch(`${baseURL}/v1/chat/completions`, {
       method: 'POST',
       headers: {
@@ -322,6 +342,16 @@ router.post(
     const out = await r.json();
     const content = out?.choices?.[0]?.message?.content?.trim() || out?.choices?.[0]?.text?.trim() || '';
     if (!content) return sendError(res, 500, 'AI 未生成内容');
+    if (uid && validJobId) {
+      const now = new Date();
+      await JobMatch.updateOne(
+        { userId: uid, jobId: validJobId },
+        t === 'advice'
+          ? { $set: { aiAdvice: content, aiAdviceFp: fp, aiAdviceUpdatedAt: now }, $setOnInsert: { userId: uid, jobId: validJobId } }
+          : { $set: { aiReason: content, aiReasonFp: fp, aiReasonUpdatedAt: now }, $setOnInsert: { userId: uid, jobId: validJobId } },
+        { upsert: true }
+      );
+    }
     return sendSuccess(res, { text: content });
   })
 );
