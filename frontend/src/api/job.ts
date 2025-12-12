@@ -61,6 +61,7 @@ export const matchJobs = (params: { userId?: string; skills?: string[] }): Promi
 
 export const generateAiReason = (payload: {
   type: 'advice' | 'reason'
+  jobId?: string
   jobTitle: string
   company?: string
   requiredSkills?: string[]
