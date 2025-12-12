@@ -333,6 +333,122 @@ router.delete(
   })
 );
 
+router.post(
+  '/ai/chat',
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    const baseURL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
+    const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+    if (!apiKey) return sendError(res, 500, 'AI 服务未配置');
+    const uid = req.user?.userId || '';
+    const { messages = [] } = req.body || {};
+    if (!uid) return sendError(res, 401, '未登录');
+    const user = await User.findById(uid).select('username skills resume');
+    if (!user) return sendError(res, 404, '用户不存在');
+    let resumeText = '';
+    if (user.resume && user.resume.data && user.resume.size && String(user.resume.mimeType || '').toLowerCase().includes('pdf')) {
+      resumeText = await extractPdfText(user.resume.data);
+      if (!resumeText || resumeText.replace(/\s+/g, '').length < 10) {
+        const alt = await extractTextPdftotext(user.resume.data);
+        if (alt && alt.length > (resumeText || '').length) {
+          resumeText = alt;
+        }
+      }
+    }
+    const skills = Array.isArray(user.skills) ? user.skills.slice(0, 20) : [];
+    const sys = `你是职业发展与招聘领域的导师。请结合用户技能与简历文本，用中文进行简洁具体的回答。用户：${user.username || ''}。技能：${skills.join('、') || '未提供'}。简历文本（截断）：${(resumeText || '').slice(0, 3000)}`;
+    const safeMessages = Array.isArray(messages)
+      ? messages
+          .filter((m) => m && typeof m === 'object' && typeof m.role === 'string' && typeof m.content === 'string')
+          .slice(-20)
+      : [];
+    const body = {
+      model,
+      messages: [{ role: 'system', content: sys }, ...safeMessages],
+      temperature: 0.6,
+      max_tokens: 512,
+    };
+    const r = await fetch(`${baseURL}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const text = await r.text();
+      return sendError(res, r.status, text || 'AI 服务错误');
+    }
+    const out = await r.json();
+    const content = out?.choices?.[0]?.message?.content?.trim() || out?.choices?.[0]?.text?.trim() || '';
+    if (!content) return sendError(res, 500, 'AI 未生成内容');
+    return sendSuccess(res, { reply: content });
+  })
+);
+
+router.post(
+  '/ai/chat/stream',
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    const baseURL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
+    const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+    if (!apiKey) return sendError(res, 500, 'AI 服务未配置');
+    const uid = req.user?.userId || '';
+    const { messages = [] } = req.body || {};
+    if (!uid) return sendError(res, 401, '未登录');
+    const user = await User.findById(uid).select('username skills resume');
+    if (!user) return sendError(res, 404, '用户不存在');
+    let resumeText = '';
+    if (user.resume && user.resume.data && user.resume.size && String(user.resume.mimeType || '').toLowerCase().includes('pdf')) {
+      resumeText = await extractPdfText(user.resume.data);
+      if (!resumeText || resumeText.replace(/\s+/g, '').length < 10) {
+        const alt = await extractTextPdftotext(user.resume.data);
+        if (alt && alt.length > (resumeText || '').length) {
+          resumeText = alt;
+        }
+      }
+    }
+    const skills = Array.isArray(user.skills) ? user.skills.slice(0, 20) : [];
+    const sys = `你是职业发展与招聘领域的导师。请结合用户技能与简历文本，用中文进行简洁具体的回答。用户：${user.username || ''}。技能：${skills.join('、') || '未提供'}。简历文本（截断）：${(resumeText || '').slice(0, 3000)}`;
+    const safeMessages = Array.isArray(messages)
+      ? messages
+          .filter((m) => m && typeof m === 'object' && typeof m.role === 'string' && typeof m.content === 'string')
+          .slice(-20)
+      : [];
+    const body = {
+      model,
+      messages: [{ role: 'system', content: sys }, ...safeMessages],
+      temperature: 0.6,
+      max_tokens: 512,
+      stream: true,
+    };
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    const r = await fetch(`${baseURL}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const text = await r.text();
+      res.status(400).write(text || 'AI 服务错误');
+      return res.end();
+    }
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value && value.length) {
+        const chunk = decoder.decode(value, { stream: true });
+        res.write(chunk);
+      }
+    }
+    res.end();
+  })
+);
+
 // PDF 文本提取（primary）：使用 pdfjs-dist 提取文本；禁用 worker 以兼容 Node 环境
 // - 逐页拼接文本内容；若失败或文本过少，解析结果为空字符串
 const extractPdfText = async (buf) => {
