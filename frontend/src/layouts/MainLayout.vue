@@ -35,6 +35,10 @@
           <el-icon><Reading /></el-icon>
           <span>学习计划</span>
         </router-link>
+        <router-link class="menu-item" :class="{ active: isActive('/assistant') }" to="/assistant">
+          <el-icon><User /></el-icon>
+          <span>AI 助手</span>
+        </router-link>
       </aside>
 
       <main class="content">
