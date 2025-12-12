@@ -23,6 +23,8 @@ export enum UserAPI {
   GET_RESUME = '/api/user',
   /** 解析用户简历技能 */
   PARSE_RESUME = '/api/user/resume/parse',
+  /** AI 聊天 */
+  AI_CHAT = '/api/user/ai/chat',
 }
 
 // 登录接口
@@ -173,4 +175,25 @@ export const deleteResume = (userId: string): Promise<null> => {
 export const parseResumeSkills = (userId: string): Promise<{ addedSkills: string[]; totalFound: string[] }> => {
   // POST 解析简历技能（需鉴权），返回新增技能与全文匹配集合
   return request.post(UserAPI.PARSE_RESUME, { userId })
+}
+
+export const aiChat = (payload: { messages: { role: 'user' | 'assistant'; content: string }[] }): Promise<{ reply: string }> => {
+  return request.post(UserAPI.AI_CHAT, payload)
+}
+
+const BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:3000'
+export const aiChatStream = async (payload: { messages: { role: 'user' | 'assistant'; content: string }[] }): Promise<Response> => {
+  const token = localStorage.getItem('accessToken') || ''
+  const resp = await fetch(`${BASE_URL}${UserAPI.AI_CHAT}/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!resp.ok) {
+    throw new Error(`HTTP ${resp.status}`)
+  }
+  return resp
 }
