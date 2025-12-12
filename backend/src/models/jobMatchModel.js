@@ -6,6 +6,12 @@ const jobMatchSchema = new mongoose.Schema(
     jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', required: true, index: true },
     matchScore: { type: Number, default: 0 },
     missingSkills: { type: [String], default: [] },
+    aiAdvice: { type: String, default: '' },
+    aiAdviceFp: { type: String, default: '' },
+    aiAdviceUpdatedAt: { type: Date },
+    aiReason: { type: String, default: '' },
+    aiReasonFp: { type: String, default: '' },
+    aiReasonUpdatedAt: { type: Date },
     updatedAt: { type: Date, default: Date.now },
   },
   { collection: 'jobMatches' }
