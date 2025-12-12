@@ -40,6 +40,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '学习计划', requiresAuth: true },
       },
       {
+        path: 'assistant',
+        name: 'Assistant',
+        component: () => import('@/views/AssistantPage.vue'),
+        meta: { title: 'AI 职业助手', requiresAuth: true },
+      },
+      {
         path: 'match',
         name: 'MatchResult',
         component: () => import('@/views/MatchResultPage.vue'),
