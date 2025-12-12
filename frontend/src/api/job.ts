@@ -58,3 +58,15 @@ export interface MatchItem {
 export const matchJobs = (params: { userId?: string; skills?: string[] }): Promise<MatchItem[]> => {
   return request.post('/api/job/match', params)
 }
+
+export const generateAiReason = (payload: {
+  type: 'advice' | 'reason'
+  jobTitle: string
+  company?: string
+  requiredSkills?: string[]
+  missingSkills?: string[]
+  matchScore?: number
+  userSkills?: string[]
+}): Promise<{ text: string }> => {
+  return request.post('/api/job/ai/reason', payload)
+}
