@@ -19,12 +19,7 @@
         </div>
         <div>
           <el-progress :percentage="Math.round(currentMatch.percent * 100)" status="success" />
-          <div class="top-suggest">
-            AI 建议：你的能力与该岗位总体匹配，建议补充
-            <span v-if="currentMatch.missing.length">{{ currentMatch.missing.slice(0,2).join('、') }}</span>
-            <span v-else>关键技能的项目实践</span>
-            以提升竞争力。
-          </div>
+          <div class="top-suggest">{{ aiAdvice || defaultAdvice }}</div>
         </div>
       </div>
     </el-card>
@@ -92,7 +87,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
-import { matchJobs, getJobDetail, type MatchItem } from '@/api/job'
+import { matchJobs, getJobDetail, type MatchItem, generateAiReason } from '@/api/job'
 import { createLearningPlan } from '@/api/learning'
 
 const router = useRouter()
@@ -101,6 +96,8 @@ const store = useUserStore()
 
 type RichMatchItem = MatchItem & { skills?: string[]; salary?: string; city?: string }
 const results = ref<RichMatchItem[]>([])
+const aiAdvice = ref('')
+const aiReasons = ref<Record<string, string>>({})
 
 const currentJob = ref<any>(null)
 const currentMatch = computed(() => {
@@ -127,12 +124,19 @@ const generatePlan = async (m: RichMatchItem) => {
 const gotoProfile = () => router.push({ name: 'Profile' })
 
 const buildReason = (m: RichMatchItem) => {
+  if (aiReasons.value[m.jobId]) return aiReasons.value[m.jobId]
   const matched = (m.skills || []).filter(s => (store.userInfo?.skills || []).includes(s))
   const missing = (m.missingSkills || [])
   const head = matched.length ? `你的 ${matched.slice(0,3).join('、')} 能力与岗位要求高度匹配` : '你的技能与岗位有一定匹配度'
   const tail = missing.length ? `，建议补充 ${missing.slice(0,2).join('、')} 以提升竞争力。` : '。继续保持与加深实践经验。'
   return head + tail
 }
+const defaultAdvice = computed(() => {
+  const m = currentMatch.value
+  const miss = m.missing.slice(0, 2).join('、')
+  const tail = miss ? `建议补充 ${miss} 以提升竞争力。` : '建议在关键技能上加深项目实践。'
+  return `AI 建议：你的能力与该岗位总体匹配，${tail}`
+})
 
 onMounted(async () => {
   const userId = localStorage.getItem('userId') || store.userInfo?._id || ''
@@ -161,6 +165,43 @@ onMounted(async () => {
       }
     }
     results.value = enriched
+    if (currentJob.value) {
+      const userSkills = (store.userInfo?.skills || [])
+      const jobSkills = (currentJob.value.skills || [])
+      const userLower = userSkills.map(s => String(s).toLowerCase())
+      const jobLower = jobSkills.map((s: any) => String(s).toLowerCase())
+      const matched = jobLower.filter((s: any) => userLower.includes(s))
+      const percent = jobLower.length ? Number((matched.length / jobLower.length).toFixed(2)) : 0
+      const missing = jobSkills.filter((s: any) => !userLower.includes(String(s).toLowerCase()))
+      try {
+        const r = await generateAiReason({
+          type: 'advice',
+          jobTitle: currentJob.value.title,
+          company: currentJob.value.company,
+          requiredSkills: jobSkills,
+          missingSkills: missing,
+          matchScore: percent,
+          userSkills,
+        })
+        aiAdvice.value = r.text || ''
+      } catch {}
+    }
+    for (const item of results.value.slice(0, 3)) {
+      try {
+        const r = await generateAiReason({
+          type: 'reason',
+          jobTitle: item.jobTitle,
+          company: item.company,
+          requiredSkills: item.skills || [],
+          missingSkills: item.missingSkills || [],
+          matchScore: item.matchScore || 0,
+          userSkills: (store.userInfo?.skills || []),
+        })
+        if (r && r.text) {
+          aiReasons.value[item.jobId] = r.text
+        }
+      } catch {}
+    }
   } catch (e) {
     console.error(e)
   }
