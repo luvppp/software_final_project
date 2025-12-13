@@ -23,7 +23,7 @@
   </template>
   
   <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, nextTick } from 'vue'
   import { aiChat, aiChatStream } from '@/api/user'
   
   const messages = ref<{ role: 'user' | 'assistant'; content: string }[]>([
@@ -55,6 +55,11 @@
     return out
   }
   
+  const chatRef = ref<HTMLDivElement | null>(null)
+  const scrollToBottom = () => {
+    const el = chatRef.value
+    if (el) el.scrollTop = el.scrollHeight
+  }
   const send = async () => {
     const text = input.value.trim()
     if (!text || loading.value) return
@@ -93,8 +98,21 @@
           } else {
             messages.value[idx].content += t
           }
+          await nextTick()
+          scrollToBottom()
         }
       }
+      if (buffer.trim()) {
+        try {
+          const j = JSON.parse(buffer.trim().replace(/^data:\s*/, ''))
+          const delta = j?.choices?.[0]?.delta?.content || ''
+          if (delta) messages.value[idx].content += delta
+        } catch {
+          messages.value[idx].content += buffer.trim()
+        }
+      }
+      await nextTick()
+      scrollToBottom()
       if (!messages.value[idx].content) {
         const r = await aiChat(payload)
         const reply = (r && (r as any).reply) || (r as any)?.data?.reply || ''
