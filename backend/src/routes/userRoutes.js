@@ -55,26 +55,33 @@ router.post(
 router.post(
   '/login',
   asyncHandler(async (req, res) => {
+    // 读取登录参数：email 与 password
     const { email, password } = req.body || {};
     if (!email || !password) {
       return sendError(res, 400, 'email/password 不能为空');
     }
 
-    // 按标准化邮箱查询用户
+    // 按标准化邮箱查询用户（统一为小写并去除空格）
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
       return sendError(res, 401, '邮箱或密码错误');
     }
-    // 校验明文密码与哈希值
+    // 使用 bcrypt 对比明文密码与数据库哈希
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) {
       return sendError(res, 401, '邮箱或密码错误');
     }
 
+    // 生成短期 accessToken 与长期 refreshToken
+    // - accessToken：用于接口鉴权，过期较短（默认 15m）
+    // - refreshToken：用于无感刷新 accessToken（默认 30d）
     const accessToken = jwt.sign({ userId: user.id, type: 'access' }, ACCESS_TOKEN_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES });
     const refreshToken = jwt.sign({ userId: user.id, type: 'refresh' }, REFRESH_TOKEN_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES });
 
     try {
+      // 登录后初始化匹配度缓存（JobMatch 集合）
+      // - 将用户技能与岗位技能做大小写无关的交集计算
+      // - 计算 matchScore 与缺失技能 missingSkills
       const userSkillsLower = (user.skills || []).map((s) => String(s).toLowerCase());
       const jobs = await Job.find({}).select('_id title company skills').limit(1000);
       const bulkOps = jobs.map((job) => {
@@ -84,6 +91,7 @@ router.post(
         const missing = (job.skills || []).filter((s) => !userSkillsLower.includes(String(s).toLowerCase()));
         return {
           updateOne: {
+            // 以 userId + jobId 做唯一索引，upsert 写入/更新
             filter: { userId: user._id, jobId: job._id },
             update: { $set: { matchScore: score, missingSkills: missing, updatedAt: new Date() } },
             upsert: true,
@@ -91,6 +99,7 @@ router.post(
         };
       });
       if (bulkOps.length) {
+        // 批量写入，ordered=false 可跳过单条失败继续执行
         await JobMatch.bulkWrite(bulkOps, { ordered: false });
       }
     } catch (e) {
@@ -105,6 +114,7 @@ router.post(
 router.post(
   '/token/refresh',
   asyncHandler(async (req, res) => {
+    // 使用 refreshToken 换取新的 accessToken
     const { refreshToken } = req.body || {};
     if (!refreshToken) {
       return sendError(res, 400, '缺少 refreshToken');
@@ -114,6 +124,7 @@ router.post(
       if (!payload || payload.type !== 'refresh' || !payload.userId) {
         return sendError(res, 401, 'refreshToken 无效');
       }
+      // 颁发新的短期 accessToken
       const accessToken = jwt.sign({ userId: payload.userId, type: 'access' }, ACCESS_TOKEN_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES });
       return sendSuccess(res, { accessToken }, '刷新成功');
     } catch (e) {
@@ -127,6 +138,7 @@ router.put(
   '/skills',
   authMiddleware,
   asyncHandler(async (req, res) => {
+    // 读取技能与意向岗位参数
     const { userId, skills = [], targetJob } = req.body || {};
     if (!userId || !Array.isArray(skills)) {
       return sendError(res, 400, 'userId 或 skills 不合法');
@@ -149,6 +161,7 @@ router.put(
     await user.save();
 
     try {
+      // 更新技能后重计算匹配度缓存
       const userSkillsLower = (user.skills || []).map((s) => String(s).toLowerCase());
       const jobs = await Job.find({}).select('_id title company skills').limit(1000);
       const bulkOps = jobs.map((job) => {
@@ -337,16 +350,19 @@ router.post(
   '/ai/chat',
   authMiddleware,
   asyncHandler(async (req, res) => {
+    // 读取 AI 服务配置（Key/URL/模型）
     const apiKey = process.env.DEEPSEEK_API_KEY;
     const baseURL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
     const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
     if (!apiKey) return sendError(res, 500, 'AI 服务未配置');
+    // 当前用户 id 与消息列表（仅保留最后 20 条）
     const uid = req.user?.userId || '';
     const { messages = [] } = req.body || {};
     if (!uid) return sendError(res, 401, '未登录');
     const user = await User.findById(uid).select('username skills resume');
     if (!user) return sendError(res, 404, '用户不存在');
     let resumeText = '';
+    // 若简历为 PDF，尝试提取文本；文本过短时走 fallback
     if (user.resume && user.resume.data && user.resume.size && String(user.resume.mimeType || '').toLowerCase().includes('pdf')) {
       resumeText = await extractPdfText(user.resume.data);
       if (!resumeText || resumeText.replace(/\s+/g, '').length < 10) {
@@ -357,9 +373,11 @@ router.post(
       }
     }
     const skills = Array.isArray(user.skills) ? user.skills.slice(0, 20) : [];
+    // 组装系统提示词：包含用户名、技能与截断后的简历文本
     const sys = `你是职业发展与招聘领域的导师。请结合用户技能与简历文本，用中文进行简洁具体的回答。用户：${user.username || ''}。技能：${skills.join('、') || '未提供'}。简历文本（截断）：${(resumeText || '').slice(0, 3000)}`;
     const safeMessages = Array.isArray(messages)
       ? messages
+          // 仅保留合法 role/content 的消息，避免脏数据
           .filter((m) => m && typeof m === 'object' && typeof m.role === 'string' && typeof m.content === 'string')
           .slice(-20)
       : [];
@@ -390,16 +408,19 @@ router.post(
   '/ai/chat/stream',
   authMiddleware,
   asyncHandler(async (req, res) => {
+    // 读取 AI 服务配置（Key/URL/模型）
     const apiKey = process.env.DEEPSEEK_API_KEY;
     const baseURL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
     const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
     if (!apiKey) return sendError(res, 500, 'AI 服务未配置');
+    // 当前用户 id 与消息列表（仅保留最后 20 条）
     const uid = req.user?.userId || '';
     const { messages = [] } = req.body || {};
     if (!uid) return sendError(res, 401, '未登录');
     const user = await User.findById(uid).select('username skills resume');
     if (!user) return sendError(res, 404, '用户不存在');
     let resumeText = '';
+    // 若简历为 PDF，尝试提取文本；文本过短时走 fallback
     if (user.resume && user.resume.data && user.resume.size && String(user.resume.mimeType || '').toLowerCase().includes('pdf')) {
       resumeText = await extractPdfText(user.resume.data);
       if (!resumeText || resumeText.replace(/\s+/g, '').length < 10) {
@@ -410,9 +431,11 @@ router.post(
       }
     }
     const skills = Array.isArray(user.skills) ? user.skills.slice(0, 20) : [];
+    // 组装系统提示词：包含用户名、技能与截断后的简历文本
     const sys = `你是职业发展与招聘领域的导师。请结合用户技能与简历文本，用中文进行简洁具体的回答。用户：${user.username || ''}。技能：${skills.join('、') || '未提供'}。简历文本（截断）：${(resumeText || '').slice(0, 3000)}`;
     const safeMessages = Array.isArray(messages)
       ? messages
+          // 仅保留合法 role/content 的消息，避免脏数据
           .filter((m) => m && typeof m === 'object' && typeof m.role === 'string' && typeof m.content === 'string')
           .slice(-20)
       : [];
@@ -424,6 +447,7 @@ router.post(
       max_tokens: maxTokens,
       stream: true,
     };
+    // 设置 SSE 响应头：告知浏览器这是一个持续推送的数据流
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
@@ -437,13 +461,14 @@ router.post(
       res.status(400).write(text || 'AI 服务错误');
       return res.end();
     }
+    // 逐块读取上游响应体并直接写入到 SSE
     const reader = r.body.getReader();
     const decoder = new TextDecoder('utf-8');
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
       if (value && value.length) {
-        const chunk = decoder.decode(value, { stream: true });
+        const chunk = decoder.decode(value, { stream: true }); // 将二进制块解码为文本
         res.write(chunk);
       }
     }
