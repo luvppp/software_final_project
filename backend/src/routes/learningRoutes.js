@@ -1,12 +1,16 @@
 import { Router } from 'express';
+import { Router } from 'express';
 import mongoose from 'mongoose';
-import LearningPlan from '../models/learningPlanModel.js';
 import User from '../models/userModel.js';
-import SkillStat from '../models/skillStatModel.js';
+import LearningPlan from '../models/learningPlanModel.js';
 import { sendError, sendSuccess } from '../utils/response.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
+// 学习计划路由：
+// - 根据缺失技能生成学习计划（最多选取若干优先技能）
+// - 支持更新学习进度，写回用户技能列表的包含/移除
+// - 需要用户本人鉴权
 const router = Router();
 
 // skillCourses 集合：为每个技能存放候选课程列表（由脚本采集）
@@ -18,6 +22,7 @@ const courseSchema = new mongoose.Schema(
   },
   { collection: 'skillCourses' }
 );
+
 const SkillCourse =
   mongoose.models.SkillCourse || mongoose.model('SkillCourse', courseSchema);
 
