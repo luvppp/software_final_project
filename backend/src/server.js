@@ -1,3 +1,7 @@
+// 应用启动入口：
+// - 加载本地环境变量（支持当前目录与上级目录的 .env）
+// - 校验并填充 AI 相关配置（DeepSeek）
+// - 连接 MongoDB，再启动 HTTP 服务
 import app from './app.js';
 import { connectMongo } from './config/mongoose.js';
 import fs from 'fs';
@@ -5,6 +9,7 @@ import path from 'path';
 
 const PORT = process.env.PORT || 3000;
 
+// 从 .env 文件加载环境变量（仅在进程未设置时覆盖）
 const loadLocalEnv = () => {
   try {
     const candidates = [
@@ -34,6 +39,7 @@ const loadLocalEnv = () => {
   } catch {}
 };
 
+// 校验 AI 服务所需的环境变量；为可选项设置默认值
 const validateAIEnv = () => {
   const required = ['DEEPSEEK_API_KEY'];
   const defaults = [
@@ -47,11 +53,13 @@ const validateAIEnv = () => {
     }
   }
   if (missing.length) {
-    console.error(`❌ 缺少必需的 AI 配置环境变量: ${missing.join(', ')}`);
-    console.error('请在 .env 或系统环境中设置 DEEPSEEK_API_KEY');
-    process.exit(1);
+    // 以告警模式启动：AI 接口会返回“未配置”，但服务不崩溃
+    console.warn(`⚠️ 缺少必需的 AI 配置环境变量: ${missing.join(', ')}`);
+    console.warn('请在 .env 或系统环境中设置 DEEPSEEK_API_KEY（当前将以禁用 AI 模式启动）');
+    process.env.AI_ENABLED = 'false';
   } else {
     console.log('✅ AI 配置已就绪');
+    process.env.AI_ENABLED = 'true';
   }
 };
 
@@ -66,4 +74,3 @@ const bootstrap = async () => {
 };
 
 bootstrap();
-
