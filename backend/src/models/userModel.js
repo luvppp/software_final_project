@@ -15,6 +15,8 @@ const userSchema = new mongoose.Schema(
     phone: { type: String, default: '' },
     skills: { type: [String], default: [] },
     targetJob: { type: String, default: '' },
+    resetCodeHash: { type: String, default: '' },
+    resetCodeExpires: { type: Date },
     resume: {
       filename: { type: String, default: '' },
       mimeType: { type: String, default: '' },
