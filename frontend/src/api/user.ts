@@ -183,15 +183,36 @@ export const aiChat = (payload: { messages: { role: 'user' | 'assistant'; conten
 
 const BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:3000'
 export const aiChatStream = async (payload: { messages: { role: 'user' | 'assistant'; content: string }[] }): Promise<Response> => {
-  const token = localStorage.getItem('accessToken') || ''
-  const resp = await fetch(`${BASE_URL}${UserAPI.AI_CHAT}/stream`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(payload),
-  })
+  const doFetch = async () => {
+    const token = localStorage.getItem('accessToken') || ''
+    return fetch(`${BASE_URL}${UserAPI.AI_CHAT}/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    })
+  }
+  let resp = await doFetch()
+  if (resp.status === 401) {
+    const rt = localStorage.getItem('refreshToken') || ''
+    if (rt) {
+      try {
+        const r = await fetch(`${BASE_URL}${UserAPI.REFRESH_TOKEN}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: rt }),
+        })
+        const data = await r.json()
+        const ok = data && typeof data === 'object' && data.code === 200 && data.data && data.data.accessToken
+        if (ok) {
+          localStorage.setItem('accessToken', data.data.accessToken)
+          resp = await doFetch()
+        }
+      } catch {}
+    }
+  }
   if (!resp.ok) {
     throw new Error(`HTTP ${resp.status}`)
   }
