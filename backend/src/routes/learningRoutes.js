@@ -2,6 +2,7 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import User from '../models/userModel.js';
 import LearningPlan from '../models/learningPlanModel.js';
+import SkillStat from '../models/skillStatModel.js';
 import { sendError, sendSuccess } from '../utils/response.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import authMiddleware from '../middleware/authMiddleware.js';
