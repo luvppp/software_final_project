@@ -25,6 +25,12 @@ export enum UserAPI {
   PARSE_RESUME = '/api/user/resume/parse',
   /** AI 聊天 */
   AI_CHAT = '/api/user/ai/chat',
+  /** 发送重置验证码 */
+  SEND_RESET_CODE = '/api/user/send-reset-code',
+  /** 验证重置验证码 */
+  VERIFY_RESET_CODE = '/api/user/verify-reset-code',
+  /** 重置密码 */
+  RESET_PASSWORD = '/api/user/reset-password',
 }
 
 // 登录接口
@@ -179,6 +185,18 @@ export const parseResumeSkills = (userId: string): Promise<{ addedSkills: string
 
 export const aiChat = (payload: { messages: { role: 'user' | 'assistant'; content: string }[] }): Promise<{ reply: string }> => {
   return request.post(UserAPI.AI_CHAT, payload)
+}
+
+export const sendResetCode = (email: string): Promise<null> => {
+  return request.post(UserAPI.SEND_RESET_CODE, { email })
+}
+
+export const verifyResetCode = (params: { email: string; code: string }): Promise<null> => {
+  return request.post(UserAPI.VERIFY_RESET_CODE, params)
+}
+
+export const resetPassword = (params: { email: string; code: string; newPassword: string }): Promise<null> => {
+  return request.post(UserAPI.RESET_PASSWORD, params)
 }
 
 const BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:3000'
