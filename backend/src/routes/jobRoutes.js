@@ -15,6 +15,8 @@ router.get(
   authMiddleware,
   asyncHandler(async (req, res) => {
     // 读取分页与过滤参数
+    // page/limit：分页控制；keyword/city：基础过滤
+    // prefer：用户意向岗位关键词，用于优先排序；isInternRaw：是否实习（字符串 'true'/'false'）
     const page = Number(req.query.page) > 0 ? Number(req.query.page) : 1;
     const limit = Number(req.query.limit) > 0 ? Number(req.query.limit) : 10;
     const keyword = (req.query.keyword || '').trim();
@@ -27,6 +29,7 @@ router.get(
       prefer = (u && u.targetJob) ? String(u.targetJob).trim() : '';
     }
     // 构建查询条件（关键词、城市、实习）
+    // keyword 同时匹配 title/company/skills；city 兼容“xx市”后缀；isIntern 精确布尔过滤
     const conds = [];
     if (keyword) {
       conds.push({
@@ -52,6 +55,8 @@ router.get(
     if (prefer) {
       const preferRegex = prefer;
       // 使用聚合：根据 prefer 关键词计算 preferScore，优先排序
+      // preferRegex 以字符串形式传入 $regexMatch，options: 'i' 实现不区分大小写
+      // 流程：$match 过滤 → $addFields 计算 preferScore → $sort 优先度与时间 → $facet 同时分页与计数
       const pipeline = [
         { $match: query },
         {
@@ -85,7 +90,7 @@ router.get(
       total = out[0]?.total?.[0]?.count || 0;
       data = out[0]?.data || [];
     } else {
-      // 普通查询：计数与分页查询并行
+      // 普通查询：计数与分页查询并行，减少往返等待
       const resp = await Promise.all([
         Job.countDocuments(query),
         Job.find(query)
@@ -100,6 +105,7 @@ router.get(
     const stripTitle = (t) => {
       let s = String(t || '');
       // 去除如 30-60K、30K-50K、10000-20000元/月、20-40万/年、月薪/年薪/•19薪 等片段
+      // 仅清理标题中薪资/补充标识，保留岗位本身名称，提升列表可读性
       s = s.replace(/\s*\d+[\d\-]*\s*(?:[kK]|万|W|元(?:\/[月年])?|(?:万|千)?(?:\/[月年])?)(?:\s*[•·]\s*\d+\s*薪)?/gi, '');
       s = s.replace(/\s*[•·]\s*$/g, '');
       return s.trim();
@@ -136,6 +142,7 @@ router.post(
   authMiddleware,
   asyncHandler(async (req, res) => {
     const { userId, skills } = req.body || {};
+    // skillSet：参与匹配的用户技能来源，优先取请求体，其次回退到用户库
     let skillSet = Array.isArray(skills) ? skills : [];
 
     if (userId && (!req.user || req.user.userId !== userId)) {
@@ -145,6 +152,7 @@ router.post(
     if (!skillSet.length && userId) {
       const user = await User.findById(userId);
       if (user) {
+        // 回退到用户库技能，保证有匹配输入
         skillSet = user.skills;
       }
     }
@@ -162,9 +170,11 @@ router.post(
       const u = await User.findById(req.user.userId).select('targetJob');
       prefer = (u && u.targetJob) ? String(u.targetJob).trim() : '';
     }
+    // preferRegex：意向岗位关键字过滤，匹配岗位关键词或标题
     const preferRegex = prefer ? new RegExp(prefer, 'i') : null;
 
     if (userId) {
+      // 优先使用登录时或技能更新后生成的匹配度缓存，减少实时计算成本
       const stored = await JobMatch.find({ userId }).sort({ matchScore: -1 }).limit(1000);
       if (stored && stored.length) {
         const ids = stored.map((m) => m.jobId);
@@ -187,6 +197,7 @@ router.post(
           })
           .filter(Boolean)
           .filter((item) => {
+            // 至少包含 3 个技能，避免噪声岗位；prefer 过滤优先用户意向
             const skillCountOk = Array.isArray(item.skills) && item.skills.length >= 3;
             const preferOk = preferRegex ? (preferRegex.test(item.keyword || '') || preferRegex.test(item.jobTitle || '')) : true;
             return skillCountOk && preferOk;
@@ -196,13 +207,18 @@ router.post(
       }
     }
 
+    // 实时计算匹配度：选取最多 200 条岗位进行计算
     const jobList = await Job.find({}).limit(200);
+    // 标准化技能为小写，做大小写无关匹配
     const userSkillsLower = skillSet.map((s) => String(s).toLowerCase());
     const matches = jobList
       .map((job) => {
         const jobSkillsLower = (job.skills || []).map((s) => String(s).toLowerCase());
+        // matchedCount：岗位技能与用户技能交集数量
         const matchedCount = jobSkillsLower.filter((s) => userSkillsLower.includes(s)).length;
+        // missingSkills：岗位需要但用户尚未具备的技能
         const missingSkills = (job.skills || []).filter((s) => !userSkillsLower.includes(String(s).toLowerCase()));
+        // matchScore：匹配度 = 交集/岗位技能总数（保留两位小数）
         const matchScore = jobSkillsLower.length ? Number((matchedCount / jobSkillsLower.length).toFixed(2)) : 0;
         return {
           jobId: job.id,
@@ -215,6 +231,7 @@ router.post(
         };
       })
       .filter((item) => {
+        // 过滤掉技能过少的岗位，并按用户意向进行匹配
         const skillCountOk = Array.isArray(item.skills) && item.skills.length >= 3;
         const preferOk = preferRegex ? (preferRegex.test(item.keyword || '') || preferRegex.test(item.jobTitle || '')) : true;
         return skillCountOk && preferOk;
@@ -229,6 +246,7 @@ router.get(
   '/match/top/:userId',
   authMiddleware,
   asyncHandler(async (req, res) => {
+    // 返回匹配度 Top3 的岗位摘要，需用户本人鉴权
     const { userId } = req.params;
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return sendError(res, 400, 'userId 不合法');
@@ -258,6 +276,7 @@ router.get(
   '/cities',
   authMiddleware,
   asyncHandler(async (req, res) => {
+    // 返回岗位覆盖的城市列表（去重、清洗、按中文排序）
     const fromCity = await Job.distinct('city');
     const list = (fromCity || [])
       .map((v) => String(v || '').trim())
@@ -272,6 +291,9 @@ router.post(
   '/ai/reason',
   authMiddleware,
   asyncHandler(async (req, res) => {
+    // AI 推荐理由/建议生成：
+    // - 输入岗位与用户技能信息，调用 DeepSeek 生成中文简洁可执行输出
+    // - 通过技能指纹 fp 做缓存命中，减少重复调用成本
     const apiKey = req.headers['x-deepseek-key'] || process.env.DEEPSEEK_API_KEY;
     const baseURL = (req.headers['x-deepseek-base']) || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
     const model = (req.headers['x-deepseek-model']) || process.env.DEEPSEEK_MODEL || 'deepseek-chat';
@@ -294,7 +316,9 @@ router.post(
       const u = await User.findById(uid).select('skills');
       skillsSource = u?.skills || [];
     }
+    // fp：技能指纹（小写去空格去重排序拼接），用于判断缓存是否可复用
     const fp = (skillsSource || []).map((s) => String(s).toLowerCase().trim()).filter(Boolean).sort().join('|');
+    // prompt 内容拼装：岗位/已具备技能/缺失技能/匹配度
     const reqSkills = (Array.isArray(requiredSkills) ? requiredSkills : []).slice(0, 8).join('、');
     const missSkills = (Array.isArray(missingSkills) ? missingSkills : []).slice(0, 4).join('、');
     const usrSkills = (Array.isArray(userSkills) ? userSkills : []).slice(0, 8).join('、');
@@ -319,6 +343,7 @@ router.post(
     if (uid && validJobId) {
       let jm = await JobMatch.findOne({ userId: uid, jobId: validJobId });
       if (jm) {
+        // 缓存命中：相同技能指纹 fp 时直接返回历史 AI 输出
         if (t === 'advice' && jm.aiAdvice && jm.aiAdviceFp === fp) {
           return sendSuccess(res, { text: jm.aiAdvice });
         }
@@ -374,6 +399,7 @@ router.get(
     let matchScore = null;
     let missingSkills = null;
     if (req.user && req.user.userId && mongoose.Types.ObjectId.isValid(req.user.userId)) {
+      // 读取当前用户在该岗位的匹配度与缺失技能（若有缓存）
       const m = await JobMatch.findOne({ userId: req.user.userId, jobId: id }).select('matchScore missingSkills');
       if (m) {
         matchScore = m.matchScore ?? null;
