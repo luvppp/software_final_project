@@ -71,6 +71,7 @@
   import { ref, computed, nextTick, onMounted } from 'vue'
   import { aiChat, aiChatStream } from '@/api/user'
   import { ChatLineRound, Plus, Delete } from '@element-plus/icons-vue'
+  import { ElMessageBox } from 'element-plus'
 
   type Msg = { role: 'user' | 'assistant'; content: string }
   type Convo = { id: string; name: string; messages: Msg[] }
@@ -106,19 +107,26 @@
     activeId.value = id
     save()
   }
-  const deleteChat = (id: string) => {
-    const idx = convos.value.findIndex(c => c.id === id)
-    if (idx >= 0) {
-      convos.value.splice(idx, 1)
-      if (!convos.value.length) {
-        const nid = String(Date.now())
-        convos.value = [{ id: nid, name: '1', messages: [] }]
-        activeId.value = nid
-      } else if (activeId.value === id) {
-        activeId.value = convos.value[0].id
+  const deleteChat = async (id: string) => {
+    try {
+      await ElMessageBox.confirm('确认删除该对话吗？删除后不可恢复', '提示', {
+        type: 'warning',
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+      })
+      const idx = convos.value.findIndex(c => c.id === id)
+      if (idx >= 0) {
+        convos.value.splice(idx, 1)
+        if (!convos.value.length) {
+          const nid = String(Date.now())
+          convos.value = [{ id: nid, name: '1', messages: [] }]
+          activeId.value = nid
+        } else if (activeId.value === id) {
+          activeId.value = convos.value[0].id
+        }
+        save()
       }
-      save()
-    }
+    } catch {}
   }
   const clearAll = () => {
     const id = String(Date.now())
@@ -253,7 +261,7 @@
   .header-actions { position: absolute; right: 0; top: 0; display: flex; gap: 10px; }
   .title { font-size: 22px; font-weight: 700; color: $color-title; }
   .sub { color: $color-subtle; margin-top: 4px; }
-  .layout { display: grid; grid-template-columns: 280px 1fr; gap: $spacing-lg; }
+  .layout { display: grid; grid-template-columns: 220px 1fr; gap: $spacing-lg; }
   .list-card { border-radius: $border-radius-card; padding: $spacing-md; }
   .list-header { font-weight: 600; color: $color-title; margin-bottom: $spacing-sm; }
   .list { display: grid; gap: 8px; }
@@ -272,11 +280,11 @@
   .robot { font-size: 42px; }
   .empty-title { color: $color-title; font-weight: 600; }
   .empty-sub { margin-top: 4px; }
-  .chat-window { height: 360px; overflow-y: auto; padding: $spacing-md; background: #fff; border: 1px solid $color-border; border-radius: $border-radius-card; }
+  .chat-window { height: 460px; overflow-y: auto; padding: $spacing-md; background: #fff; border: 1px solid $color-border; border-radius: $border-radius-card; }
   .msg { display: flex; margin-bottom: 10px; }
   .msg.user { justify-content: flex-end; }
   .msg.assistant { justify-content: flex-start; }
-  .bubble { max-width: 70%; padding: 10px 12px; border-radius: 12px; line-height: 1.6; }
+  .bubble { max-width: 80%; padding: 10px 12px; border-radius: 12px; line-height: 1.6; }
   .msg.user .bubble { background: #409eff; color: #fff; }
   .msg.assistant .bubble { background: #f5f7fa; color: #333; }
   .bubble h3 { margin: 8px 0; font-weight: 600; color: $color-title; }
