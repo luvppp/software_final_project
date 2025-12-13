@@ -49,6 +49,10 @@
 </template>
 
 <script setup lang="ts">
+// 主布局职责：
+// - 顶部用户栏（用户名下拉：资料/退出）
+// - 左侧导航菜单（首页/岗位推荐/个人资料/学习计划/AI 助手）
+// - 右侧内容区承载具体业务页面
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
