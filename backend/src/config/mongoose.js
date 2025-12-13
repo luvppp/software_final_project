@@ -10,7 +10,7 @@ const CANDIDATE_URIS = (() => {
   const envUri = process.env.MONGO_URI && String(process.env.MONGO_URI).trim();
   if (envUri) return [envUri];
   return [
-    'mongodb://10.161.106.62:27017/software',
+    'mongodb://10.161.96.67:27017/software',
     'mongodb://127.0.0.1:27017/software',
     'mongodb://localhost:27017/software',
   ];
