@@ -57,6 +57,9 @@
 </template>
 
 <script setup lang="ts">
+// 岗位列表页面职责：
+// - 提供关键字/城市/岗位类型筛选与分页
+// - 展示岗位卡片并可进入详情页
 import { ref, reactive, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { Search } from '@element-plus/icons-vue'
@@ -67,6 +70,8 @@ import { listJobs, listCities, type JobItem } from '@/api/job'
 const SearchIcon = Search
 
 // 查询条件与状态
+// - form：keyword/city/isIntern 三项筛选（isIntern：''|'true'|'false'）
+// - cities：城市备选列表；loading/jobs/meta：加载态、数据与分页元数据
 const form = reactive<{ keyword: string; city: string; isIntern: string }>({ keyword: '', city: '', isIntern: '' })
 const cities = ref<string[]>([])
 const loading = ref(false)
@@ -79,6 +84,8 @@ const router = useRouter()
 const fetchJobs = async (page?: number) => {
   loading.value = true
   try {
+    // prefer：从用户 Store 的 targetJob 注入，提升与意向岗位相关的排序优先级
+    // isInternParam：将下拉值映射为后端需要的布尔/undefined
     const prefer = store.userInfo?.targetJob?.trim() || undefined
     const isInternParam = form.isIntern === '' ? undefined : form.isIntern === 'true'
     const res = await listJobs({ page: page ?? meta.page, limit: 10, keyword: (form.keyword || '').trim(), city: (form.city || '').trim(), prefer, isIntern: isInternParam })
@@ -103,6 +110,7 @@ const fetchCities = async () => {
   } catch {}
 }
 
+// 页面挂载：并行拉取城市与首屏列表
 onMounted(() => {
   fetchCities()
   fetchJobs(1)
