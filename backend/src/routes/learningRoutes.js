@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { Router } from 'express';
 import mongoose from 'mongoose';
 import User from '../models/userModel.js';
 import LearningPlan from '../models/learningPlanModel.js';
