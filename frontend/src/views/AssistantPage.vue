@@ -73,6 +73,9 @@
   import { ChatLineRound, Plus, Delete } from '@element-plus/icons-vue'
   import { ElMessageBox } from 'element-plus'
 
+  // 会话与消息模型：
+  // - 本地持久化按 userId 隔离，键名：assistant:convos:<userId>
+  // - 每个会话最多保留 15 条消息（新增或流式追加时进行裁剪）
   type Msg = { role: 'user' | 'assistant'; content: string }
   type Convo = { id: string; name: string; messages: Msg[] }
   const key = (() => {
@@ -81,6 +84,7 @@
   })()
   const convos = ref<Convo[]>([])
   const activeId = ref<string>('')
+  // 初始化：读取本地存储，无则创建一个空会话
   const load = () => {
     try {
       const raw = localStorage.getItem(key)
@@ -96,10 +100,12 @@
       activeId.value = convos.value[0].id
     }
   }
+  // 持久化到 localStorage
   const save = () => {
     try { localStorage.setItem(key, JSON.stringify(convos.value)) } catch {}
   }
   const selectChat = (id: string) => { activeId.value = id }
+  // 新建会话：插到列表顶部并切换
   const newChat = () => {
     const id = String(Date.now())
     const name = String(convos.value.length + 1)
@@ -107,6 +113,7 @@
     activeId.value = id
     save()
   }
+  // 删除会话：带确认框，删除后若为空则创建一个空会话
   const deleteChat = async (id: string) => {
     try {
       await ElMessageBox.confirm('确认删除该对话吗？删除后不可恢复', '提示', {
@@ -128,6 +135,7 @@
       }
     } catch {}
   }
+  // 清空所有会话：重置为一个空会话
   const clearAll = () => {
     const id = String(Date.now())
     convos.value = [{ id, name: '1', messages: [] }]
@@ -135,16 +143,19 @@
     save()
   }
   onMounted(load)
+  // 派生当前会话、消息与统计
   const current = computed(() => convos.value.find(c => c.id === activeId.value) || convos.value[0])
   const currentMessages = computed(() => current.value?.messages || [])
   const currentName = computed(() => current.value?.name || '1')
   const currentCount = computed(() => currentMessages.value.length)
   const input = ref('')
   const loading = ref(false)
+  // 输入处理：Enter 发送，Shift+Enter 换行
   const onEnter = (e: KeyboardEvent) => {
     if (e.shiftKey) return
     send()
   }
+  // 文本安全 Markdown 渲染：支持标题、加粗、列表；并转义 HTML
   const mdToHtml = (md: string) => {
     let s = String(md || '')
     s = s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -168,12 +179,16 @@
     if (inUl) out += '</ul>'
     return out
   }
-  
+
   const chatRef = ref<HTMLDivElement | null>(null)
   const scrollToBottom = () => {
     const el = chatRef.value
     if (el) el.scrollTop = el.scrollHeight
   }
+  // 发送消息：
+  // - 写入当前会话并裁剪到 15 条
+  // - 调用流式接口，按 SSE 分块增量追加；尾包补齐
+  // - 自动滚动到底部并持久化
   const send = async () => {
     const text = input.value.trim()
     if (!text || loading.value) return
