@@ -4,6 +4,7 @@ import { sendError, sendSuccess } from '../utils/response.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import nodemailer from 'nodemailer';
 import authMiddleware from '../middleware/authMiddleware.js';
 import Job from '../models/jobModel.js';
 import JobMatch from '../models/jobMatchModel.js';
@@ -48,6 +49,92 @@ router.post(
     });
 
     return sendSuccess(res, { userId: user.id }, '注册成功');
+  })
+);
+
+router.post(
+  '/send-reset-code',
+  asyncHandler(async (req, res) => {
+    const { email } = req.body || {};
+    if (!email) {
+      return sendError(res, 400, '邮箱不能为空');
+    }
+    const user = await User.findOne({ email: String(email).toLowerCase().trim() });
+    if (!user) {
+      return sendError(res, 404, '用户不存在');
+    }
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const hash = await bcrypt.hash(code, 10);
+    user.resetCodeHash = hash;
+    user.resetCodeExpires = new Date(Date.now() + 15 * 60 * 1000);
+    await user.save();
+    const mailUser = process.env.QQ_MAIL_USER;
+    const mailPass = process.env.QQ_MAIL_PASS;
+    if (!mailUser || !mailPass) {
+      return sendError(res, 500, '邮件服务未配置');
+    }
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.qq.com',
+      port: 465,
+      secure: true,
+      auth: { user: mailUser, pass: mailPass },
+    });
+    await transporter.sendMail({
+      from: `"AI职业系统" <${mailUser}>`,
+      to: user.email,
+      subject: '重置密码验证码',
+      text: `验证码：${code}，有效期15分钟。`,
+      html: `<div>验证码：<b>${code}</b>，有效期15分钟。</div>`,
+    });
+    return sendSuccess(res, null, '验证码已发送');
+  })
+);
+
+router.post(
+  '/verify-reset-code',
+  asyncHandler(async (req, res) => {
+    const { email, code } = req.body || {};
+    if (!email || !code) {
+      return sendError(res, 400, '参数不完整');
+    }
+    const user = await User.findOne({ email: String(email).toLowerCase().trim() });
+    if (!user || !user.resetCodeHash || !user.resetCodeExpires) {
+      return sendError(res, 404, '验证码无效');
+    }
+    if (new Date(user.resetCodeExpires).getTime() < Date.now()) {
+      return sendError(res, 400, '验证码已过期');
+    }
+    const ok = await bcrypt.compare(String(code), user.resetCodeHash);
+    if (!ok) {
+      return sendError(res, 400, '验证码错误');
+    }
+    return sendSuccess(res, null, '验证通过');
+  })
+);
+
+router.post(
+  '/reset-password',
+  asyncHandler(async (req, res) => {
+    const { email, code, newPassword } = req.body || {};
+    if (!email || !code || !newPassword) {
+      return sendError(res, 400, '参数不完整');
+    }
+    const user = await User.findOne({ email: String(email).toLowerCase().trim() });
+    if (!user || !user.resetCodeHash || !user.resetCodeExpires) {
+      return sendError(res, 404, '验证码无效');
+    }
+    if (new Date(user.resetCodeExpires).getTime() < Date.now()) {
+      return sendError(res, 400, '验证码已过期');
+    }
+    const ok = await bcrypt.compare(String(code), user.resetCodeHash);
+    if (!ok) {
+      return sendError(res, 400, '验证码错误');
+    }
+    user.password = await bcrypt.hash(String(newPassword), 10);
+    user.resetCodeHash = '';
+    user.resetCodeExpires = undefined;
+    await user.save();
+    return sendSuccess(res, null, '密码已重置');
   })
 );
 
