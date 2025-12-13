@@ -11,6 +11,9 @@
 </template>
 
 <script setup lang="ts">
+// 登录页面职责：
+// - 使用通用 AuthCard 组件渲染登录表单
+// - 调用用户 Store 执行登录，成功后跳转首页
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
