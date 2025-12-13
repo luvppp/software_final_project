@@ -6,6 +6,7 @@
     "mongoose": "^8.19.2",
     "pnpm": "^10.19.0",
     "puppeteer": "^24.26.1",
-    "pdfjs-dist": "^4.4.168"
+    "pdfjs-dist": "^4.4.168",
+    "nodemailer": "^6.9.8"
   }
 }
