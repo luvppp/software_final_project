@@ -272,9 +272,9 @@ router.post(
   '/ai/reason',
   authMiddleware,
   asyncHandler(async (req, res) => {
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    const baseURL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
-    const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+    const apiKey = req.headers['x-deepseek-key'] || process.env.DEEPSEEK_API_KEY;
+    const baseURL = (req.headers['x-deepseek-base']) || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
+    const model = (req.headers['x-deepseek-model']) || process.env.DEEPSEEK_MODEL || 'deepseek-chat';
     if (!apiKey) return sendError(res, 500, 'AI 服务未配置');
     const {
       type,
