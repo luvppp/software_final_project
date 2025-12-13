@@ -56,6 +56,10 @@
 </template>
 
 <script setup lang="ts">
+// 首页页面职责：
+// - 展示欢迎区与“开始智能匹配”入口
+// - 展示推荐岗位（Top3）与学习进度概览
+// - 通过路由跳转进入详情/学习计划/匹配结果页面
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
@@ -65,22 +69,29 @@ import { getLearningPlan, type PlanItem } from '@/api/learning'
 const router = useRouter()
 const store = useUserStore()
 
+// 用户名/头像首字母/目标岗位：从用户 Store 读取
 const username = computed(() => store.userInfo?.username || '用户')
 const initials = computed(() => (username.value || '').slice(0, 2))
 const targetJob = computed(() => store.userInfo?.targetJob || '')
 
+// 推荐岗位列表与加载态
 const jobs = ref<MatchItem[]>([])
 const loadingJobs = ref(true)
 
+// 学习计划与进度统计：总数、已完成数、总体百分比
 const plan = ref<PlanItem[]>([])
 const totalCount = computed(() => plan.value.length)
 const completedCount = computed(() => plan.value.filter(i => i.progress >= 100).length)
 const overallPercent = computed(() => totalCount.value ? Math.round((completedCount.value / totalCount.value) * 100) : 0)
 
+// 路由跳转方法：匹配、详情、学习计划
 const startMatch = () => router.push({ name: 'MatchResult' })
 const openDetail = (id: string) => router.push({ name: 'JobDetail', params: { id } })
 const gotoLearning = () => router.push({ name: 'Learning' })
 
+// 首屏数据加载：
+// - 拉取学习计划用于进度条展示
+// - 拉取匹配岗位用于推荐区（取前3条）
 onMounted(async () => {
   const userId = localStorage.getItem('userId') || store.userInfo?._id || ''
   try {
