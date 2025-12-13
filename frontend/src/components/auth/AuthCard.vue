@@ -88,6 +88,7 @@
           <router-link :to="footerLink.to" class="footer-link">
             {{ footerLink.text }}
           </router-link>
+          <el-button v-if="showForgot" link class="footer-link" @click="emit('forgot')">忘记密码</el-button>
         </div>
       </el-form>
     </el-card>
@@ -111,6 +112,7 @@ interface Props {
   showUsername?: boolean
   showConfirmPassword?: boolean
   showRememberMe?: boolean
+  showForgot?: boolean
   loading?: boolean
 }
 
@@ -118,12 +120,14 @@ const props = withDefaults(defineProps<Props>(), {
   showUsername: false,
   showConfirmPassword: false,
   showRememberMe: false,
+  showForgot: false,
   loading: false,
 })
 
 // Emits
 interface Emits {
   (e: 'submit', data: any): void
+  (e: 'forgot'): void
 }
 
 const emit = defineEmits<Emits>()
