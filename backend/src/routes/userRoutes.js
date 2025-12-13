@@ -363,11 +363,12 @@ router.post(
           .filter((m) => m && typeof m === 'object' && typeof m.role === 'string' && typeof m.content === 'string')
           .slice(-20)
       : [];
+    const maxTokens = Number(process.env.DEEPSEEK_MAX_TOKENS || 1500);
     const body = {
       model,
       messages: [{ role: 'system', content: sys }, ...safeMessages],
       temperature: 0.6,
-      max_tokens: 512,
+      max_tokens: maxTokens,
     };
     const r = await fetch(`${baseURL}/v1/chat/completions`, {
       method: 'POST',
@@ -415,11 +416,12 @@ router.post(
           .filter((m) => m && typeof m === 'object' && typeof m.role === 'string' && typeof m.content === 'string')
           .slice(-20)
       : [];
+    const maxTokens = Number(process.env.DEEPSEEK_MAX_TOKENS || 1500);
     const body = {
       model,
       messages: [{ role: 'system', content: sys }, ...safeMessages],
       temperature: 0.6,
-      max_tokens: 512,
+      max_tokens: maxTokens,
       stream: true,
     };
     res.setHeader('Content-Type', 'text/event-stream');
