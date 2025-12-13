@@ -12,6 +12,9 @@
 </template>
 
 <script setup lang="ts">
+// 注册页面职责：
+// - 使用通用 AuthCard 组件渲染注册表单（含用户名与确认密码）
+// - 调用注册接口，成功后尝试自动登录，最后跳转首页或登录页
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
