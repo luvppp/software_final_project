@@ -1,3 +1,7 @@
+// 鉴权中间件：
+// - 从 `Authorization` 头提取 Bearer token（或裸 token）
+// - 使用 access token 的密钥进行校验
+// - 校验通过将载荷挂载到 `req.user`，否则返回统一错误结构
 import jwt from 'jsonwebtoken';
 import { sendError } from '../utils/response.js';
 
@@ -27,4 +31,3 @@ const authMiddleware = (req, res, next) => {
 };
 
 export default authMiddleware;
-
