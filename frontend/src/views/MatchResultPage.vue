@@ -84,6 +84,10 @@
 </template>
 
 <script setup lang="ts">
+// 匹配结果页面职责：
+// - 展示当前岗位分析（可选：从详情页传入from）
+// - 展示Top3推荐岗位卡片、AI推荐理由与建议
+// - 支持生成学习计划、查看详情、跳转资料/学习页面
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
@@ -123,6 +127,7 @@ const generatePlan = async (m: RichMatchItem) => {
 }
 const gotoProfile = () => router.push({ name: 'Profile' })
 
+// 构建AI推荐理由：若缓存命中优先返回，否则基于匹配/缺失技能生成简洁说明
 const buildReason = (m: RichMatchItem) => {
   if (aiReasons.value[m.jobId]) return aiReasons.value[m.jobId]
   const matched = (m.skills || []).filter(s => (store.userInfo?.skills || []).includes(s))
@@ -139,6 +144,11 @@ const defaultAdvice = computed(() => {
 })
 
 onMounted(async () => {
+  // 数据流程：
+  // 1) 若从详情页带入 from=jobId，拉取该岗位用于当前分析区
+  // 2) 拉取匹配结果并过滤到 Top3
+  // 3) 对 Top3 进行详情补充（技能/薪资/城市/匹配度）以丰富展示
+  // 4) 并行调用 AI：为当前岗位生成建议、为 Top3 逐条生成推荐理由（命中缓存则直接返回）
   const userId = localStorage.getItem('userId') || store.userInfo?._id || ''
   try {
     const fromId = String(route.query.from || '')
