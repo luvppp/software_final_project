@@ -182,6 +182,10 @@ export const aiChat = (payload: { messages: { role: 'user' | 'assistant'; conten
 }
 
 const BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:3000'
+// 流式聊天（SSE）请求：
+// - 首次请求使用当前 accessToken
+// - 若返回 401，则通过 refreshToken 调用刷新接口获取新 accessToken，再无感重试
+// - 返回原生 Response，以便前端使用 ReadableStream 持续解析
 export const aiChatStream = async (payload: { messages: { role: 'user' | 'assistant'; content: string }[] }): Promise<Response> => {
   const doFetch = async () => {
     const token = localStorage.getItem('accessToken') || ''
