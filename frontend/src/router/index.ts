@@ -4,6 +4,9 @@ import { useUserStore } from '@/stores/userStore'
 
 
 // 路由配置：主应用与认证页面，支持登录校验
+// - 使用主布局 MainLayout 嵌套路由承载业务页面
+// - 使用 AuthLayout 承载登录/注册页面
+// - 每个路由可配置 meta：title（用于设置文档标题）、requiresAuth（是否需要登录）
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -89,7 +92,8 @@ const router = createRouter({
 })
 
 // 全局前置守卫：
-// 1) 设置页面标题；2) 检查需要登录的路由并进行跳转
+// 1) 设置页面标题（读取 to.meta.title）
+// 2) 检查需要登录的路由（to.meta.requiresAuth），未登录则跳转到 /login
 router.beforeEach((to, _from, next) => {
   const title = to.meta && (to.meta as any).title
   if (typeof title === 'string') {
