@@ -1,226 +1,164 @@
-# AI 职业规划与学习成长系统
+# AI 职业规划与学习成长系统 (AI Career Path & Learning System)
 
-一个智能识别简历技能、推荐岗位与学习计划的全栈项目。前端基于 Vue 3 + Element Plus，后端基于 Express + MongoDB；支持 PDF 简历解析、用户技能管理、岗位匹配、学习计划生成，以及邮件验证码找回密码与 AI 聊天辅助。
+## 1. 项目总体介绍
 
-## 功能特性
+本项目是一个基于 AI 驱动的全栈职业规划与学习成长平台，旨在帮助求职者智能识别技能差距、推荐合适岗位并生成个性化的学习计划。系统结合了传统招聘平台的功能与现代 AI 技术，提供从简历解析到职位匹配再到技能提升的一站式解决方案。
 
-- 用户资料与技能管理：编辑基础资料、维护技能标签与熟练度（本地评分持久化）
-- 简历上传与解析：支持 PDF 上传，服务端解析文本并识别技能（`pdfjs-dist`，回退 `pdftotext`）
-- 岗位列表与匹配：分页检索岗位，按用户技能计算匹配度与缺失技能
-- 学习计划：根据缺失技能生成课程计划，支持进度更新与技能同步
-- 忘记密码：发送邮箱验证码，校验后重置密码（QQ 邮箱 SMTP）
-- AI 聊天/流式聊天：结合用户技能与简历为求职提供建议（DeepSeek）
-- 系统状态：返回运行状态、Mongo 连接信息与主机信息
-- JWT 鉴权：所有用户相关接口均需有效 `Bearer token`
+### 核心功能
+- **智能简历解析**：支持 PDF 简历上传，利用后端解析引擎自动提取关键技能与个人信息。
+- **AI 职位匹配**：基于用户技能画像与岗位要求，计算匹配度并分析缺失技能。
+- **个性化学习计划**：针对缺失技能，自动生成包含课程推荐与时间规划的学习路径。
+- **AI 职业顾问**：集成 DeepSeek 大模型，提供实时的职业咨询、模拟面试与简历优化建议。
+- **安全与隐私**：完善的 JWT 鉴权机制、敏感数据加密存储及防注入攻击设计。
 
-## 技术栈
+---
 
-- 前端：`Vue 3`、`Pinia`、`Vue Router`、`Element Plus`、`TypeScript`、`Vite`
-- 后端：`Express`、`Mongoose`、`jsonwebtoken`、`bcryptjs`、`nodemailer`
-- 简历解析：`pdfjs-dist`（Node 兼容模式）+ 可选系统工具 `pdftotext`
-- 依赖管理：`npm`（推荐 Node 20+）
+## 2. 项目配置管理
 
-## 目录结构
+本项目采用标准的开发配置流程，前后端配置分离，并通过环境变量进行敏感信息管理。
 
+### 2.1 环境依赖
+- **Node.js**: v18.0.0+ (推荐 v20+)
+- **MongoDB**: v5.0+ (需开启 Auth 认证)
+- **NPM**: v8.0+
+
+### 2.2 后端配置 (`backend/.env`)
+后端服务启动时会自动加载 `.env` 文件。请在 `backend/` 目录下创建该文件：
+
+```ini
+# --- 基础配置 ---
+PORT=3000                           # 服务监听端口
+MONGO_URI=mongodb://user:pass@localhost:27017/software?authSource=admin  # 数据库连接串
+JWT_SECRET=your_jwt_secret_key      # JWT 签名密钥 (生产环境请使用复杂随机串)
+
+# --- 邮件服务 (用于找回密码) ---
+QQ_MAIL_USER=your_email@qq.com      # 发件人邮箱
+QQ_MAIL_PASS=your_smtp_auth_code    # SMTP 授权码 (非邮箱密码)
+
+# --- AI 服务 (DeepSeek) ---
+DEEPSEEK_API_KEY=sk-xxxxxxxx        # DeepSeek API Key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_MAX_TOKENS=1500
+```
+
+### 2.3 前端配置 (`frontend/.env`)
+前端构建时读取环境变量。请在 `frontend/` 目录下创建：
+
+```ini
+VITE_API_BASE_URL=http://localhost:3000  # 后端 API 地址
+```
+
+---
+
+## 3. 项目架构设计
+
+系统采用前后端分离架构，前端负责交互与展示，后端负责业务逻辑与数据处理。
+
+### 3.1 技术栈
+| 层级 | 技术选型 | 说明 |
+| --- | --- | --- |
+| **前端** | Vue 3 + Vite | 高性能组件化开发 |
+| | Element Plus | 现代化 UI 组件库 |
+| | Pinia | 状态管理 |
+| | Vue Router | 路由管理 |
+| **后端** | Node.js + Express | 轻量级 Web 框架 |
+| | MongoDB + Mongoose | 灵活的文档型数据库与 ODM |
+| | JSON Web Token (JWT) | 无状态身份认证 |
+| **工具** | PDF.js | 简历解析引擎 |
+| | Nodemailer | 邮件发送服务 |
+
+### 3.2 目录结构
 ```
 software_final_project/
-├── backend/                       # 后端服务
-│   ├── .env                       # 后端环境变量（已被 .gitignore 忽略）
-│   └── src/
-│       ├── app.js                 # Express 应用与中间件
-│       ├── server.js              # 启动入口（加载 .env，连接 Mongo 并监听端口）
-│       ├── config/mongoose.js     # Mongo 连接配置（优先使用 MONGO_URI）
-│       ├── middleware/authMiddleware.js  # JWT 鉴权
-│       ├── models/                # Mongoose 模型
-│       │   ├── userModel.js
-│       │   ├── jobModel.js
-│       │   ├── learningPlanModel.js
-│       │   └── skillStatModel.js
-│       ├── routes/                # 路由模块
-│       │   ├── userRoutes.js      # 注册/登录/忘记密码/资料/技能/简历解析/AI
-│       │   ├── jobRoutes.js       # 岗位列表/匹配/详情/城市/AI 推荐理由
-│       │   ├── learningRoutes.js  # 学习计划生成/进度更新/查询
-│       │   └── systemRoutes.js    # 系统状态接口
-│       └── utils/                 # 工具
-│           ├── response.js        # 统一响应结构
-│           └── asyncHandler.js    # 异步路由统一捕获
-├── frontend/                      # 前端工程（Vite）
-│   └── src/
-│       ├── api/                   # API 封装（含统一拦截器 & SSE）
-│       ├── views/                 # 页面（登录/注册/资料/岗位/学习）
-│       ├── layouts/               # 布局（主布局与认证布局）
-│       ├── stores/                # Pinia Store（用户状态）
-│       ├── router/                # 路由与守卫
-│       └── styles/                # 全局样式与设计令牌
-└── README.md
+├── backend/                 # 后端服务
+│   ├── src/
+│   │   ├── config/          # 数据库与全局配置
+│   │   ├── middleware/      # 中间件 (Auth, ErrorHandler)
+│   │   ├── models/          # Mongoose 数据模型 (User, Job, Plan)
+│   │   ├── routes/          # API 路由定义
+│   │   ├── utils/           # 工具函数 (Response, AsyncHandler)
+│   │   ├── app.js           # Express 应用入口
+│   │   └── server.js        # 服务启动脚本
+│   └── tests/               # 自动化测试脚本
+├── frontend/                # 前端工程
+│   ├── src/
+│   │   ├── api/             # Axios 接口封装
+│   │   ├── stores/          # Pinia 全局状态
+│   │   ├── views/           # 页面视图 (Login, Profile, Job, Learning)
+│   │   └── layouts/         # 页面布局
+└── README.md                # 项目文档
 ```
 
-## 环境变量
+### 3.3 数据流向
+1.  **用户请求**: 前端发起 Axios 请求 (携带 Bearer Token)。
+2.  **网关/路由**: Express Router 分发请求至对应 Controller。
+3.  **鉴权中间件**: 校验 JWT 有效性，解析 User ID。
+4.  **业务逻辑**: Controller 调用 Service 或 Model 处理业务 (如计算匹配度)。
+5.  **数据持久化**: Mongoose 与 MongoDB 交互。
+6.  **响应返回**: 统一响应格式 `{ code, msg, data }` 返回前端。
 
-后端会自动从当前目录或上级目录加载 `.env`（`backend/src/server.js` 已内置），推荐在 `backend/.env` 设置以下变量：
+---
 
-- 基础
-  - `PORT=3000` 后端监听端口
-  - `MONGO_URI=mongodb://<user>:<pass>@<host>:27017/<db>?authSource=admin` 优先使用此地址连接数据库
-  - `JWT_SECRET` 或 `JWT_ACCESS_SECRET/JWT_REFRESH_SECRET` 自定义 JWT 密钥与有效期
-- 邮件（QQ 邮箱）
-  - `QQ_MAIL_USER=你的QQ邮箱` 例如 `chenyb0614@qq.com`
-  - `QQ_MAIL_PASS=你的QQ邮箱授权码` 非登录密码，是 SMTP 授权码
-- AI 服务（DeepSeek）
-  - `DEEPSEEK_API_KEY=你的API密钥`
-  - `DEEPSEEK_BASE_URL=https://api.deepseek.com`
-  - `DEEPSEEK_MODEL=deepseek-chat`
-  - `DEEPSEEK_MAX_TOKENS=1500`
+## 4. 项目测试
 
-前端通过环境变量控制后端地址：
+为保证系统稳定性，项目建立了分层的自动化测试体系，覆盖功能、安全、性能与集成测试。
 
-- `VITE_API_BASE_URL=http://localhost:3000`
+### 4.1 测试策略
+我们采用 **脚本化自动化测试**，测试脚本位于 `backend/tests/` 目录下。
 
-## 安装与运行
+*   **冒烟测试 (Smoke Test)**: 快速验证核心路径（注册 -> 登录 -> 获取个人信息），确保系统基本可用。
+*   **综合测试 (Comprehensive Test)**: 全量回归测试，覆盖所有 API 接口、异常处理与安全边界。
 
-### 后端
+### 4.2 测试覆盖范围
 
-1. 安装依赖
-   - `cd backend`
-   - `npm install`
-2. 配置环境变量
-   - 在 `backend/.env` 设置上文变量（端口/数据库/邮箱/AI）
-3. 启动
-   - 开发：`npm run dev`（`nodemon` 热重载）
-   - 生产：`npm start` 或用 PM2 常驻
+| 测试类型 | 覆盖内容 | 关键用例示例 |
+| --- | --- | --- |
+| **功能测试** | 业务逻辑正确性 | 简历解析、岗位筛选、学习计划生成、进度更新 |
+| **安全测试** | 漏洞防御能力 | SQL/NoSQL 注入、XSS 攻击、越权访问 (IDOR)、敏感路径扫描 |
+| **性能测试** | 响应与并发 | 单接口延迟 (<800ms)、高并发负载 (30+并发稳定) |
+| **集成测试** | 业务闭环 | "注册-完善资料-投递" 全流程、"生成计划-学习-完成" 全流程 |
 
-### 前端
+### 4.3 如何运行测试
 
-1. 安装依赖
-   - `cd frontend`
-   - `npm install`
-2. 配置环境变量（可选）
-   - `.env` 或 `.env.local`：`VITE_API_BASE_URL=http://localhost:3000`
-3. 启动与构建
-   - 开发：`npm run dev`
-   - 类型检查：`npm run type-check`
-   - 构建：`npm run build`
-   - 预览：`npm run preview`
+确保后端服务已启动 (`npm start` 或 `npm run dev`)，然后在项目根目录执行：
 
-## 接口说明
+1.  **执行冒烟测试** (快速检查):
+    ```bash
+    node backend/tests/api.smoke.mjs
+    ```
+    *输出: 控制台日志及 `api_smoke_report.md`*
 
-统一响应结构：`{ code: number, msg: string, data?: any }`；成功 `code=200`。
+2.  **执行综合测试** (全量验证):
+    ```bash
+    node backend/tests/api.comprehensive.mjs
+    ```
+    *输出: 详细测试报告 `api_comprehensive_report.md`，包含 Pass/Fail 状态及性能指标。*
 
-### 用户模块（`/api/user`）
+### 4.4 测试报告示例
+测试脚本会自动生成 Markdown 格式的测试报告，包含每个用例的执行结果、耗时及优先级。
 
-- `POST /register` 注册（邮箱唯一、密码哈希存储）  
-- `POST /login` 登录，返回 `accessToken`、`refreshToken`、`userId`
-- `POST /token/refresh` 刷新 `accessToken`
-- `PUT /skills` 更新技能与意向岗位（需鉴权）
-- `PUT /profile` 更新资料（需鉴权，邮箱唯一性校验）
-- `GET /:userId` 获取用户详情（需鉴权）
-- `PUT /resume` 上传简历（Base64 DataURL，大小限制 5MB）
-- `GET /:userId/resume` 获取简历（返回 DataURL 以支持预览/下载）
-- `DELETE /resume` 删除简历（需鉴权）
-- `POST /resume/parse` 解析简历技能（PDF）：返回 `addedSkills` 与 `totalFound`
-- 忘记密码：
-  - `POST /send-reset-code` 发送邮箱验证码（QQ SMTP），验证码有效期 15 分钟  
-    参考实现：`backend/src/routes/userRoutes.js:56`
-  - `POST /verify-reset-code` 校验验证码  
-    参考实现：`backend/src/routes/userRoutes.js:94`
-  - `POST /reset-password` 校验验证码并重置密码  
-    参考实现：`backend/src/routes/userRoutes.js:116`
-- AI 聊天：
-  - `POST /ai/chat` 普通模式
-  - `POST /ai/chat/stream` 流式模式（SSE）
+```markdown
+| TC-001 | 环境准备 | 服务健康检查 | ... | <span style="color:green">Pass</span> |
+| TC-031 | 安全测试 | IDOR-修改他人资料 | ... | <span style="color:green">Pass</span> |
+| TC-049 | 性能测试 | 并发负载-岗位列表 | ... | <span style="color:green">Pass</span> |
+```
 
-### 岗位模块（`/api/job`）
+---
 
-- `GET /list` 支持分页、关键字、城市、偏好、是否实习过滤
-- `POST /match` 根据用户技能返回匹配度与缺失技能
-- `GET /cities` 返回岗位城市列表（去重排序）
-- `GET /:id` 岗位详情
-- `POST /ai/reason` 生成 AI 推荐理由或建议（缓存指纹）
+## 5. 快速开始
 
-### 学习计划模块（`/api/learning`）
+### 后端启动
+```bash
+cd backend
+npm install
+# 配置 .env 文件
+npm run dev
+```
 
-- `POST /plan` 生成/覆盖学习计划（根据缺失技能）
-- `PUT /progress` 更新学习进度（0-100；全部完成自动同步技能）
-- `GET /:userId` 获取用户学习计划
-
-### 系统模块（`/api/system`）
-
-- `GET /status` 系统健康检查（运行状态、Mongo 状态、内存、主机名）
-- `GET /ai-check` AI 模块状态（示例）
-
-## 简历解析说明
-
-- 仅支持 PDF：后端会校验 `mimeType` 是否为 `application/pdf`
-- 主解析：`pdfjs-dist` 在 Node 环境下禁用 worker 并逐页提取文本
-- 回退解析：若文本过少，尝试系统命令 `pdftotext`（需服务器安装）
-- 技能词典：聚合岗位库技能 + 内置词典，进行大小写与分隔符归一化匹配；含变体规范化（如 `js`→`JavaScript`、`k8s`→`Kubernetes`）
-
-## 部署指南
-
-- 使用 PM2 常驻：
-  - `npm i -g pm2`
-  - `cd backend && pm2 start src/server.js --name ai-career-backend`
-  - `pm2 save && pm2 startup`（开机自启）
-- Nginx 反向代理示例：
-  ```
-  server {
-    listen 443 ssl;
-    server_name your.domain;
-    ssl_certificate     /path/to/fullchain.pem;
-    ssl_certificate_key /path/to/privkey.pem;
-    location / {
-      proxy_set_header Host $host;
-      proxy_set_header X-Real-IP $remote_addr;
-      proxy_pass http://127.0.0.1:3000;
-    }
-  }
-  ```
-- 前端构建后（`frontend/dist`）可由 Nginx 静态托管：
-  ```
-  server {
-    listen 443 ssl;
-    server_name your.domain;
-    root /var/www/ai-career-frontend/dist;
-    try_files $uri /index.html;
-  }
-  ```
-
-## 数据库迁移
-
-- 本地导出：`mongodump --uri="mongodb://127.0.0.1:27017/software" --out ./dump`
-- 上传服务器：`scp -r ./dump user@server:~/dump`
-- 服务器恢复：`mongorestore --uri="mongodb://<user>:<pass>@<host>:27017/<db>?authSource=admin" ~/dump/software`
-- 在后端服务器 `.env` 设置 `MONGO_URI` 指向新库
-
-## 鉴权与安全
-
-- 前端请求拦截器自动附带 `Authorization: Bearer <token>`
-- 后端对用户相关接口进行鉴权，解析 JWT 载荷至 `req.user`
-- 密码哈希储存（`bcryptjs`），验证码仅存储哈希与过期时间（`resetCodeHash/resetCodeExpires`，见 `backend/src/models/userModel.js:18-19`）
-- 不在代码库中提交任何密钥与授权码（`.env` 已被忽略）
-
-## 开发者命令
-
-- 前端
-  - `npm run dev` 开发服务器
-  - `npm run type-check` TypeScript 类型检查
-  - `npm run build` 构建产物
-  - `npm run preview` 本地预览
-- 后端
-  - `npm run dev` Nodemon 热重载
-  - `npm start` 直接启动服务
-
-## 常见问题
-
-- 端口占用（EADDRINUSE）
-  - 用 `netstat -ano | findstr :3000` 找占用进程，`taskkill /PID <pid> /F` 释放或修改 `PORT`
-- 邮件发送失败
-  - `QQ_MAIL_PASS` 必须是 QQ 的“授权码”，服务器需允许访问 `smtp.qq.com:465`
-- Mongo 连接失败
-  - 配置正确的 `MONGO_URI` 与 `authSource`；确保实例开放访问与账号权限
-- AI 未配置
-  - 设置 `DEEPSEEK_API_KEY` 等变量；否则相关接口会返回错误
-
-## 许可
-
-本项目用于课程与学习目的，若用于生产请完善安全、监控、审计与高可用方案。
+### 前端启动
+```bash
+cd frontend
+npm install
+npm run dev
+```
